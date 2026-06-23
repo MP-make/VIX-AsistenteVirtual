@@ -1,0 +1,15 @@
+[global]
+project_id = "isuquuszhmgjigrxpveu"
+
+[auth]
+enabled = true
+
+[edge_functions]
+enabled = true
+include = ["process-task", "send-instant-email", "daily-summary-cron"]
+
+[edge_functions.secrets]
+GEMINI_API_KEY = ""
+
+[analytics]
+enabled = true
