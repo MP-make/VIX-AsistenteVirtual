@@ -10,6 +10,16 @@ interface AuthContextType extends AuthState {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function getUserFromSession(session: Session | null) {
+  if (!session?.user) return null;
+  return {
+    id: session.user.id,
+    email: session.user.email ?? '',
+    nombre: session.user.user_metadata?.full_name ?? null,
+    creado_at: session.user.created_at,
+  };
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>({
     user: null,
@@ -19,22 +29,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setState((prev: AuthState) => ({
-        ...prev,
+      setState({
         session,
-        user: session?.user
-          ? { id: session.user.id, email: session.user.email ?? '', nombre: session.user.user_metadata?.full_name ?? null, creado_at: session.user.created_at }
-          : null,
+        user: getUserFromSession(session),
         loading: false,
-      }));
+      });
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: string, session: Session | null) => {
       setState({
         session,
-        user: session?.user
-          ? { id: session.user.id, email: session.user.email ?? '', nombre: session.user.user_metadata?.full_name ?? null, creado_at: session.user.created_at }
-          : null,
+        user: getUserFromSession(session),
         loading: false,
       });
     });
@@ -42,11 +47,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signIn = async () => {
-    await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: window.location.origin },
+  useEffect(() => {
+    let unsubscribe: (() => void) | undefined;
+
+    import('@capacitor/app').then(({ App }) => {
+      App.addListener('appUrlOpen', async (data) => {
+        const url = new URL(data.url);
+        if (url.hash) {
+          const params = new URLSearchParams(url.hash.replace('#', '?'));
+          const accessToken = params.get('access_token');
+          const refreshToken = params.get('refresh_token');
+          if (accessToken) {
+            await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken || '',
+            });
+          }
+        }
+      }).then((h) => { unsubscribe = h.remove; });
     });
+
+    return () => unsubscribe?.();
+  }, []);
+
+  const signIn = async () => {
+    const isCapacitor = typeof (window as any).Capacitor !== 'undefined' && (window as any).Capacitor.isNative;
+    if (isCapacitor) {
+      const { Browser } = await import('@capacitor/browser');
+      const { data: { url } } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: 'com.vix.intelligentassistant://callback',
+          skipBrowserRedirect: true,
+        },
+      });
+      if (url) await Browser.open({ url, windowName: '_blank' });
+    } else {
+      await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: window.location.origin },
+      });
+    }
   };
 
   const signOut = async () => {

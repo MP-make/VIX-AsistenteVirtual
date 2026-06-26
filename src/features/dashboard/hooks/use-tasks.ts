@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { obtenerTareas, toggleCompletada, eliminarTarea } from '@/features/dashboard/services/tasks-repository'
+import { scheduleTaskNotifications } from '@/features/notifications/notification-service'
 import type { Tarea } from '@/types'
 
 export function useTasks() {
@@ -20,6 +21,12 @@ export function useTasks() {
   }, [])
 
   useEffect(() => { refresh() }, [refresh])
+
+  useEffect(() => {
+    if (!loading && tareas.length > 0) {
+      scheduleTaskNotifications(tareas).catch(() => {})
+    }
+  }, [loading, tareas])
 
   const toggleTask = useCallback(async (id: string, completada: boolean) => {
     try {
