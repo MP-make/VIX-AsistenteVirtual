@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { supabase } from '@/config/supabase-client';
-import type { AuthState, Usuario } from '@/types';
+import type { AuthState } from '@/types';
 import type { Session } from '@supabase/supabase-js';
 
 interface AuthContextType extends AuthState {
@@ -19,7 +19,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setState(prev => ({
+      setState((prev: AuthState) => ({
         ...prev,
         session,
         user: session?.user
@@ -29,7 +29,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }));
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: string, session: Session | null) => {
       setState({
         session,
         user: session?.user

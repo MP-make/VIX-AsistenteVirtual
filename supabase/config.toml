@@ -6,7 +6,10 @@ enabled = true
 
 [edge_functions]
 enabled = true
-include = ["process-task", "send-instant-email", "daily-summary-cron"]
+include = ["process-task", "send-instant-email", "daily-summary-cron", "transcribe-audio", "chat"]
+
+[functions.process-task]
+verify_jwt = false
 
 [edge_functions.secrets]
 GEMINI_API_KEY = ""

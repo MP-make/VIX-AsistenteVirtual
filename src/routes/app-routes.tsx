@@ -1,17 +1,5 @@
-import { AuthLayout } from '@/layouts/auth-layout';
-import { AppLayout } from '@/layouts/app-layout';
-import { ProtectedRoute } from '@/routes/protected-route';
+import { Navigate } from 'react-router-dom'
 
 export function AppRoutes() {
-  const path = window.location.pathname;
-
-  if (path === '/login') {
-    return <AuthLayout />;
-  }
-
-  return (
-    <ProtectedRoute>
-      <AppLayout />
-    </ProtectedRoute>
-  );
+  return <Navigate to="/chat" replace />
 }

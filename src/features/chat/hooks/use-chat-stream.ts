@@ -1,108 +1,81 @@
-import { useState, useCallback } from 'react';
-import { procesarTexto, confirmarTarea } from '@/features/chat/services/chat-service';
-import type { ChatMessage } from '@/types';
+import { useState, useCallback } from 'react'
+import { sendChatMessage } from '@/features/chat/services/chat-service'
+import type { ChatMessage, Tarea } from '@/types'
 
-interface UseChatStreamReturn {
-  messages: ChatMessage[];
-  isStreaming: boolean;
-  sendMessage: (text: string) => Promise<void>;
-  confirmTask: (originalText: string, taskData: any) => Promise<void>;
-  clearMessages: () => void;
-}
-
-export function useChatStream(): UseChatStreamReturn {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [isStreaming, setIsStreaming] = useState(false);
+export function useChatStream() {
+  const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const sendMessage = useCallback(async (text: string) => {
-    setIsStreaming(true);
+    setIsLoading(true)
+    setError(null)
 
     const userMsg: ChatMessage = {
       id: crypto.randomUUID(),
       role: 'user',
       content: text,
       timestamp: new Date().toISOString(),
-    };
+    }
 
-    setMessages(prev => [...prev, userMsg]);
+    setMessages(prev => [...prev, userMsg])
 
     try {
-      const taskData = await procesarTexto(text);
+      const history = [...messages, userMsg].map(m => ({
+        role: m.role,
+        content: m.content,
+      }))
+
+      const response = await sendChatMessage(history)
+      let task: Tarea | undefined
+
+      if (response.tipo === 'tarea' && response.tarea) {
+        task = response.tarea
+      }
 
       const assistantMsg: ChatMessage = {
         id: crypto.randomUUID(),
         role: 'assistant',
-        content: `He procesado tu tarea. Confirma los detalles para guardarla.`,
+        content: response.respuesta,
         timestamp: new Date().toISOString(),
-        task: {
-          id: '',
-          user_id: '',
-          texto_original: text,
-          texto_pulido: taskData.texto_pulido,
-          titulo: taskData.titulo,
-          descripcion: taskData.descripcion,
-          categoria: taskData.categoria as any,
-          nivel_urgencia: taskData.nivel_urgencia as any,
-          fecha_vencimiento: taskData.fecha_vencimiento,
-          completada: false,
-          creado_at: new Date().toISOString(),
-        },
-      };
+        task: task ? { ...task } : undefined,
+      }
 
-      setMessages(prev => [...prev, assistantMsg]);
+      setMessages(prev => [...prev, assistantMsg])
     } catch (err) {
-      const errorMsg: ChatMessage = {
-        id: crypto.randomUUID(),
-        role: 'assistant',
-        content: `Error: ${err instanceof Error ? err.message : 'Error al procesar la tarea'}`,
-        timestamp: new Date().toISOString(),
-      };
-      setMessages(prev => [...prev, errorMsg]);
-    } finally {
-      setIsStreaming(false);
-    }
-  }, []);
-
-  const confirmTask = useCallback(async (originalText: string, taskData: any) => {
-    setIsStreaming(true);
-    try {
-      const saved = await confirmarTarea(originalText, taskData);
-      const confirmMsg: ChatMessage = {
-        id: crypto.randomUUID(),
-        role: 'assistant',
-        content: `✅ Tarea guardada: "${saved.titulo}"`,
-        timestamp: new Date().toISOString(),
-        task: {
-          id: saved.id,
-          user_id: saved.user_id,
-          texto_original: saved.texto_original,
-          texto_pulido: saved.texto_pulido,
-          titulo: saved.titulo,
-          descripcion: saved.descripcion,
-          categoria: saved.categoria as any,
-          nivel_urgencia: saved.nivel_urgencia as any,
-          fecha_vencimiento: saved.fecha_vencimiento,
-          completada: saved.completada,
-          creado_at: saved.creado_at,
+      console.error('[ChatStream]', err)
+      const msg = err instanceof Error ? err.message : 'Error al procesar mensaje'
+      setError(msg)
+      setMessages(prev => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: `Error: ${msg}`,
+          timestamp: new Date().toISOString(),
         },
-      };
-      setMessages(prev => [...prev, confirmMsg]);
-    } catch (err) {
-      const errorMsg: ChatMessage = {
-        id: crypto.randomUUID(),
-        role: 'assistant',
-        content: `Error al guardar: ${err instanceof Error ? err.message : 'Error desconocido'}`,
-        timestamp: new Date().toISOString(),
-      };
-      setMessages(prev => [...prev, errorMsg]);
+      ])
     } finally {
-      setIsStreaming(false);
+      setIsLoading(false)
     }
-  }, []);
+  }, [messages])
+
+  const sendAudioTranscript = useCallback(async (transcript: string) => {
+    await sendMessage(transcript)
+  }, [sendMessage])
 
   const clearMessages = useCallback(() => {
-    setMessages([]);
-  }, []);
+    setMessages([])
+    setError(null)
+  }, [])
 
-  return { messages, isStreaming, sendMessage, confirmTask, clearMessages };
+  return {
+    messages,
+    isStreaming: isLoading,
+    isLoading,
+    error,
+    sendMessage,
+    sendAudioTranscript,
+    clearMessages,
+  }
 }

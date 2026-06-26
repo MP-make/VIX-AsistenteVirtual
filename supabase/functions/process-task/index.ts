@@ -1,145 +1,153 @@
-import { type TareaEstructurada, type ProcesarTareaRequest, type ProcesarTareaResponse } from './types.ts';
+import { withSupabase } from 'jsr:@supabase/server@^1';
 
-const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY') ?? '';
-const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+type CategoriaTarea = 'Dashboard' | 'Tarea Pendiente' | 'Idea' | 'Práctica Calificada' | 'Tesis';
+type UrgenciaTarea = 'Crítico' | 'Medio' | 'Baja' | 'Idea';
 
-const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+interface GeminiStructuredOutput {
+  texto_pulido: string;
+  titulo: string;
+  descripcion: string;
+  categoria: CategoriaTarea;
+  nivel_urgencia: UrgenciaTarea;
+  dias_plazo: number | null;
+}
 
-const SYSTEM_PROMPT = `Eres un asistente de organización de tareas. Analiza el texto del usuario y extrae la información estructurada de una tarea.
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
 
-Reglas:
-1. Corrige errores ortográficos y de redacción → texto_pulido
-2. Genera un título corto y descriptivo
-3. Extrae o infiere una descripción y fecha de vencimiento si es posible (formato ISO 8601)
-4. Clasifica la categoría: Dashboard | Tarea Pendiente | Idea | Práctica Calificada | Tesis
-5. Clasifica la urgencia: Crítico | Medio | Baja | Idea
-6. Si no hay suficiente info para fecha_vencimiento, devuelve null
-7. Responde ÚNICAMENTE con el JSON, sin markdown ni explicaciones
+export default {
+  fetch: withSupabase({ auth: true }, async (req: Request, ctx: { supabase: any; user: { id: string } }) => {
+    if (req.method === 'OPTIONS') {
+      return new Response('ok', { headers: corsHeaders });
+    }
 
-Formato de respuesta:
-{
-  "titulo": "string",
-  "descripcion": "string | null",
-  "categoria": "Dashboard | Tarea Pendiente | Idea | Práctica Calificada | Tesis",
-  "nivel_urgencia": "Crítico | Medio | Baja | Idea",
-  "fecha_vencimiento": "string (ISO 8601) | null",
-  "texto_pulido": "string"
-}`;
+    const user_id = ctx.user.id;
+    let texto_original = '';
 
-async function procesarConGemini(texto: string): Promise<TareaEstructurada> {
-  const response = await fetch(GEMINI_ENDPOINT, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [
-        {
-          role: 'user',
-          parts: [{ text: `${SYSTEM_PROMPT}\n\nTexto del usuario:\n${texto}` }],
+    try {
+      const supabaseClient = ctx.supabase;
+      const body = await req.json();
+      texto_original = body.texto_original;
+
+      if (!texto_original?.trim()) {
+        return new Response(
+          JSON.stringify({ ok: false, error: 'texto_original es requerido' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const apiKey = Deno.env.get('GEMINI_API_KEY') ?? '';
+
+      const promptSistema = `Actúas como un organizador personal de alta precisión.
+Objetivos obligatorios:
+1. Corrige errores gramaticales, muletillas y malas transcripciones en 'texto_pulido'.
+2. Extrae metadatos estructurales de la tarea basándote lógicamente en los plazos.
+La fecha actual es: ${new Date().toISOString()}`;
+
+      const schemaEstructurado = {
+        type: 'object',
+        properties: {
+          texto_pulido: { type: 'string' },
+          titulo: { type: 'string' },
+          descripcion: { type: 'string' },
+          categoria: { type: 'string', enum: ['Dashboard', 'Tarea Pendiente', 'Idea', 'Práctica Calificada', 'Tesis'] },
+          nivel_urgencia: { type: 'string', enum: ['Crítico', 'Medio', 'Baja', 'Idea'] },
+          dias_plazo: { type: 'integer' },
         },
-      ],
-      generationConfig: {
-        temperature: 0.2,
-        topK: 1,
-        topP: 1,
-      },
-    }),
-  });
+        required: ['texto_pulido', 'titulo', 'categoria', 'nivel_urgencia'],
+      };
 
-  if (!response.ok) {
-    const errorBody = await response.text();
-    throw new Error(`Gemini API error ${response.status}: ${errorBody}`);
-  }
+      const targetUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
 
-  const data = await response.json();
-  const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
-
-  const cleaned = rawText.replace(/```json?/gi, '').replace(/```/g, '').trim();
-  return JSON.parse(cleaned) as TareaEstructurada;
-}
-
-async function guardarEnDB(
-  userId: string,
-  textoOriginal: string,
-  taskData: TareaEstructurada,
-): Promise<ProcesarTareaResponse['saved_task']> {
-  const body = {
-    user_id: userId,
-    texto_original: textoOriginal,
-    texto_pulido: taskData.texto_pulido,
-    titulo: taskData.titulo,
-    descripcion: taskData.descripcion,
-    categoria: taskData.categoria,
-    nivel_urgencia: taskData.nivel_urgencia,
-    fecha_vencimiento: taskData.fecha_vencimiento,
-  };
-
-  const response = await fetch(`${SUPABASE_URL}/rest/v1/tareas`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'apikey': SUPABASE_SERVICE_ROLE_KEY,
-      'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-      'Prefer': 'return=representation',
-    },
-    body: JSON.stringify(body),
-  });
-
-  if (!response.ok) {
-    const errorBody = await response.text();
-    throw new Error(`DB insert error ${response.status}: ${errorBody}`);
-  }
-
-  const saved = await response.json();
-  return Array.isArray(saved) ? saved[0] : saved;
-}
-
-Deno.serve(async (req: Request): Promise<Response> => {
-  try {
-    if (req.method !== 'POST') {
-      return new Response(JSON.stringify({ ok: false, error: 'Method not allowed' }), {
-        status: 405,
+      const aiResponse = await fetch(targetUrl, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: `Procesa esta entrada: "${texto_original}"` }] }],
+          systemInstruction: { parts: [{ text: promptSistema }] },
+          generationConfig: {
+            responseMimeType: 'application/json',
+            responseSchema: schemaEstructurado,
+            temperature: 0.1,
+          },
+        }),
       });
+
+      if (!aiResponse.ok) {
+        throw new Error(`Error en Gemini: ${aiResponse.statusText}`);
+      }
+
+      const aiData = await aiResponse.json();
+      const rawTextResult = aiData?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!rawTextResult) throw new Error('Gemini devolvió respuesta vacía');
+
+      const aiResult: GeminiStructuredOutput = JSON.parse(rawTextResult);
+
+      let fecha_vencimiento: string | null = null;
+      if (aiResult.dias_plazo && aiResult.dias_plazo > 0) {
+        const dateCalculated = new Date();
+        dateCalculated.setDate(dateCalculated.getDate() + aiResult.dias_plazo);
+        fecha_vencimiento = dateCalculated.toISOString();
+      }
+
+      const { data: tareaGuardada, error: dbError } = await supabaseClient
+        .from('tareas')
+        .insert({
+          user_id,
+          texto_original,
+          texto_pulido: aiResult.texto_pulido,
+          titulo: aiResult.titulo,
+          descripcion: aiResult.descripcion || null,
+          categoria: aiResult.categoria,
+          nivel_urgencia: aiResult.nivel_urgencia,
+          fecha_vencimiento,
+        })
+        .select()
+        .single();
+
+      if (dbError) throw dbError;
+
+      return new Response(
+        JSON.stringify({ ok: true, gemini_processed: true, data: tareaGuardada }),
+        { status: 201, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    } catch (err) {
+      try {
+        if (!texto_original?.trim()) throw new Error('No hay texto para fallback');
+
+        const { data: fallbackTask, error: fallbackError } = await ctx.supabase
+          .from('tareas')
+          .insert({
+            user_id,
+            texto_original,
+            texto_pulido: texto_original,
+            titulo: texto_original.substring(0, 50) + '...',
+            descripcion: 'Procesamiento de IA no disponible. Guardado en modo fallback.',
+            categoria: 'Tarea Pendiente',
+            nivel_urgencia: 'Medio',
+            fecha_vencimiento: null,
+          })
+          .select()
+          .single();
+
+        if (fallbackError) throw fallbackError;
+
+        return new Response(
+          JSON.stringify({ ok: true, gemini_processed: false, fallback_applied: true, data: fallbackTask }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      } catch (fallbackCriticalError) {
+        return new Response(
+          JSON.stringify({
+            ok: false,
+            error: 'Fallo crítico irrecuperable',
+            details: fallbackCriticalError instanceof Error ? fallbackCriticalError.message : String(fallbackCriticalError),
+          }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
     }
-
-    const { texto_original, user_id, confirmed, task_data } = (await req.json()) as ProcesarTareaRequest;
-
-    if (!texto_original?.trim()) {
-      return new Response(JSON.stringify({ ok: false, error: 'texto_original es requerido' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
-
-    if (!user_id) {
-      return new Response(JSON.stringify({ ok: false, error: 'user_id es requerido' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
-
-    // Paso 2: Confirmación → guardar en DB
-    if (confirmed && task_data) {
-      const saved_task = await guardarEnDB(user_id, texto_original, task_data);
-      return new Response(JSON.stringify({ ok: true, saved_task } satisfies ProcesarTareaResponse), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
-
-    // Paso 1: Procesar con Gemini
-    const task = await procesarConGemini(texto_original);
-
-    return new Response(JSON.stringify({ ok: true, task } satisfies ProcesarTareaResponse), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'Internal server error';
-    return new Response(JSON.stringify({ ok: false, error: message } satisfies ProcesarTareaResponse), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }
-});
+  }),
+};

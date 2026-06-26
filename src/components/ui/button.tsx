@@ -1,9 +1,9 @@
-import { type ButtonHTMLAttributes } from 'react';
-import { clsx } from 'clsx';
+import { type ButtonHTMLAttributes } from 'react'
+import { clsx } from 'clsx'
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
-  size?: 'sm' | 'md' | 'lg';
+  variant?: 'primary' | 'secondary' | 'ghost' | 'danger'
+  size?: 'sm' | 'md' | 'lg'
 }
 
 export function Button({
@@ -16,17 +16,21 @@ export function Button({
   return (
     <button
       className={clsx(
-        'inline-flex items-center justify-center rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none',
+        'inline-flex items-center justify-center rounded-xl font-medium transition-all active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none',
         {
-          'bg-purple-600 text-white hover:bg-purple-700': variant === 'primary',
-          'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700': variant === 'secondary',
-          'text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800': variant === 'ghost',
-          'bg-red-600 text-white hover:bg-red-700': variant === 'danger',
+          'bg-gradient-to-r from-vix-500 to-vix-700 text-white shadow-sm shadow-vix-500/20 hover:shadow-md hover:shadow-vix-500/30':
+            variant === 'primary',
+          'border border-gray-200 bg-white text-gray-700 shadow-xs hover:bg-gray-50 hover:border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700':
+            variant === 'secondary',
+          'text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800':
+            variant === 'ghost',
+          'bg-red-500 text-white hover:bg-red-600 shadow-xs':
+            variant === 'danger',
         },
         {
-          'px-3 py-1.5 text-xs': size === 'sm',
-          'px-4 py-2 text-sm': size === 'md',
-          'px-6 py-3 text-base': size === 'lg',
+          'px-3 py-1.5 text-xs gap-1.5': size === 'sm',
+          'px-4 py-2 text-sm gap-2': size === 'md',
+          'px-6 py-3 text-base gap-2.5': size === 'lg',
         },
         className,
       )}
@@ -34,5 +38,5 @@ export function Button({
     >
       {children}
     </button>
-  );
+  )
 }

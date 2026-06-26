@@ -1,22 +1,13 @@
-import { clsx } from 'clsx';
-
 interface LoadingSpinnerProps {
-  size?: 'sm' | 'md' | 'lg';
-  className?: string;
+  size?: 'sm' | 'md' | 'lg'
 }
 
-export function LoadingSpinner({ size = 'md', className }: LoadingSpinnerProps) {
+export function LoadingSpinner({ size = 'md' }: LoadingSpinnerProps) {
+  const dim = size === 'lg' ? 'h-10 w-10' : size === 'md' ? 'h-7 w-7' : 'h-4 w-4'
+
   return (
-    <div
-      className={clsx(
-        'animate-spin rounded-full border-2 border-purple-500 border-t-transparent',
-        {
-          'h-4 w-4': size === 'sm',
-          'h-8 w-8': size === 'md',
-          'h-12 w-12': size === 'lg',
-        },
-        className,
-      )}
-    />
-  );
+    <div className="relative flex items-center justify-center">
+      <div className={`${dim} animate-spin rounded-full border-2 border-vix-200 border-t-vix-600 dark:border-vix-800 dark:border-t-vix-400`} />
+    </div>
+  )
 }

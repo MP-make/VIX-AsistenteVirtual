@@ -3,7 +3,6 @@ export type UrgenciaTarea = 'Crítico' | 'Medio' | 'Baja' | 'Idea';
 
 export interface ProcesarTareaRequest {
   texto_original: string;
-  user_id: string;
   confirmed?: boolean;
   task_data?: TareaEstructurada;
 }
@@ -20,7 +19,7 @@ export interface TareaEstructurada {
 export interface ProcesarTareaResponse {
   ok: boolean;
   task?: TareaEstructurada;
-  saved_task?: TareaGuardada;
+  data?: TareaGuardada;
   error?: string;
 }
 

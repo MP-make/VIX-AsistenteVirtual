@@ -1,86 +1,79 @@
-import { supabase } from '@/config/supabase-client';
+import { supabase } from '@/config/supabase-client'
+import type { ChatMessage, Tarea } from '@/types'
 
-export interface TareaEstructurada {
-  titulo: string;
-  descripcion: string | null;
-  categoria: string;
-  nivel_urgencia: string;
-  fecha_vencimiento: string | null;
-  texto_pulido: string;
+export interface ChatResponse {
+  ok: boolean
+  tipo: 'chat' | 'tarea'
+  respuesta: string
+  tarea: Tarea | null
 }
 
-export interface TareaGuardada {
-  id: string;
-  user_id: string;
-  texto_original: string;
-  texto_pulido: string;
-  titulo: string;
-  descripcion: string | null;
-  categoria: string;
-  nivel_urgencia: string;
-  fecha_vencimiento: string | null;
-  completada: boolean;
-  creado_at: string;
-}
+export async function sendChatMessage(
+  messages: Pick<ChatMessage, 'role' | 'content'>[]
+): Promise<ChatResponse> {
+  console.log('[sendChatMessage] INICIO', messages.length)
 
-const EDGE_FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/process-task`;
+  const { data: { session } } = await supabase.auth.getSession()
+  console.log('[sendChatMessage] session', !!session)
 
-export async function procesarTexto(textoOriginal: string): Promise<TareaEstructurada> {
-  const { data: session } = await supabase.auth.getSession();
-  const user_id = session?.session?.user?.id;
+  if (!session?.user?.id) throw new Error('Usuario no autenticado')
 
-  if (!user_id) {
-    throw new Error('Usuario no autenticado');
-  }
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+  const accessToken = session.access_token
 
-  const response = await fetch(EDGE_FUNCTION_URL, {
+  console.log('[sendChatMessage] supabaseUrl', supabaseUrl)
+  console.log('[sendChatMessage] anonKey', !!anonKey)
+  console.log('[sendChatMessage] accessToken', !!accessToken)
+
+  if (!supabaseUrl) throw new Error('Falta VITE_SUPABASE_URL')
+  if (!anonKey) throw new Error('Falta VITE_SUPABASE_ANON_KEY')
+  if (!accessToken) throw new Error('Sesión sin access_token')
+
+  console.log('[sendChatMessage] haciendo fetch')
+  const res = await fetch(`${supabaseUrl}/functions/v1/chat`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${session.session.access_token}`,
+      apikey: anonKey,
+      Authorization: `Bearer ${accessToken}`,
     },
-    body: JSON.stringify({ texto_original: textoOriginal, user_id }),
-  });
+    body: JSON.stringify({ messages, user_id: session.user.id }),
+  })
 
-  const result = await response.json();
+  console.log('[sendChatMessage] status', res.status)
 
-  if (!result.ok) {
-    throw new Error(result.error ?? 'Error al procesar la tarea');
+  const data = await res.json()
+  console.log('[sendChatMessage] data', JSON.stringify(data))
+
+  if (!res.ok) {
+    throw new Error(data?.error ?? `Error HTTP ${res.status}`)
   }
 
-  return result.task as TareaEstructurada;
+  if (!data?.ok) throw new Error(data?.error ?? 'Error al procesar mensaje')
+
+  return data as ChatResponse
 }
 
-export async function confirmarTarea(
-  textoOriginal: string,
-  taskData: TareaEstructurada,
-): Promise<TareaGuardada> {
-  const { data: session } = await supabase.auth.getSession();
-  const user_id = session?.session?.user?.id;
+export async function transcribirAudio(
+  audioBase64: string,
+  mimeType: string,
+): Promise<string> {
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
-  if (!user_id) {
-    throw new Error('Usuario no autenticado');
-  }
-
-  const response = await fetch(EDGE_FUNCTION_URL, {
+  const res = await fetch(`${supabaseUrl}/functions/v1/transcribe-audio`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${session.session.access_token}`,
+      apikey: anonKey,
     },
-    body: JSON.stringify({
-      texto_original: textoOriginal,
-      user_id,
-      confirmed: true,
-      task_data: taskData,
-    }),
-  });
+    body: JSON.stringify({ audio_base64: audioBase64, mime_type: mimeType }),
+  })
 
-  const result = await response.json();
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.error ?? `Error HTTP ${res.status}`)
+  if (data.error) throw new Error(data.error)
 
-  if (!result.ok) {
-    throw new Error(result.error ?? 'Error al guardar la tarea');
-  }
-
-  return result.saved_task as TareaGuardada;
+  return data.transcript
 }
