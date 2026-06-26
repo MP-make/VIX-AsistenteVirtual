@@ -71,7 +71,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signIn = async () => {
-    const isCapacitor = typeof (window as any).Capacitor !== 'undefined' && (window as any).Capacitor.isNative;
+    const { Capacitor } = await import('@capacitor/core');
+    const isCapacitor = Capacitor.isNativePlatform();
     if (isCapacitor) {
       const { Browser } = await import('@capacitor/browser');
       const { data: { url } } = await supabase.auth.signInWithOAuth({
