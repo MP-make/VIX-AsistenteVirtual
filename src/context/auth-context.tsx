@@ -71,23 +71,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signIn = async () => {
-    const isNative = !!(window as any).Capacitor?.isNative;
-    if (isNative) {
-      const { Browser } = await import('@capacitor/browser');
-      const { data: { url } } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: 'com.vix.intelligentassistant://callback',
-          skipBrowserRedirect: true,
-        },
-      });
-      if (url) await Browser.open({ url, windowName: '_blank' });
-    } else {
-      await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: { redirectTo: window.location.origin },
-      });
-    }
+    const { data: { url } } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin,
+      },
+    });
+    if (url) window.location.href = url;
   };
 
   const signOut = async () => {
