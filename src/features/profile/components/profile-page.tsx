@@ -21,16 +21,39 @@ export function ProfilePage() {
 
   useEffect(() => {
     (async () => {
-      const [resRewards, resPuntos] = await Promise.all([
-        supabase.from('recompensas').select('*').order('creado_at', { ascending: false }).limit(20),
-        supabase.from('usuarios').select('puntos, notif_sound').eq('id', user?.id).single(),
-      ])
-      if (resRewards.data) setRecompensas(resRewards.data as Recompensa[])
-      if (resPuntos.data) {
-        setPuntos(resPuntos.data.puntos)
-        if (resPuntos.data.notif_sound) {
-          setSoundLabel('Personalizado')
+      try {
+        const resRewards = await supabase
+          .from('recompensas')
+          .select('*')
+          .order('creado_at', { ascending: false })
+        if (resRewards.error) throw resRewards.error
+        if (resRewards.data && resRewards.data.length > 0) {
+          const todas = resRewards.data as Recompensa[]
+          setRecompensas(todas.filter(r => r.accion === 'completar_tarea'))
+          setPuntos(todas.reduce((sum, r) => sum + r.puntos, 0))
+        } else {
+          const { data: userPts } = await supabase
+            .from('usuarios')
+            .select('puntos')
+            .eq('id', user?.id)
+            .single()
+          if (userPts) setPuntos(userPts.puntos)
         }
+      } catch (e) {
+        const { data: userPts } = await supabase
+          .from('usuarios')
+          .select('puntos')
+          .eq('id', user?.id)
+          .single()
+        if (userPts) setPuntos(userPts.puntos)
+      }
+      const { data: userData } = await supabase
+        .from('usuarios')
+        .select('notif_sound')
+        .eq('id', user?.id)
+        .single()
+      if (userData?.notif_sound) {
+        setSoundLabel('Personalizado')
       }
       setLoadingRewards(false)
     })()

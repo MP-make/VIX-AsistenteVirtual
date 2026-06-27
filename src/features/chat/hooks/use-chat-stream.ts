@@ -34,6 +34,8 @@ export function useChatStream() {
 
       if (response.tipo === 'tarea' && response.tarea) {
         task = response.tarea
+        const tareas = await obtenerTareas()
+        scheduleTaskNotifications(tareas).catch(() => {})
       }
 
       const assistantMsg: ChatMessage = {

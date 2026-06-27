@@ -8,6 +8,7 @@ import android.media.RingtoneManager;
 import android.net.Uri;
 import android.os.Build;
 import android.util.Log;
+import androidx.core.content.FileProvider;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
@@ -56,7 +57,7 @@ public class NotificationSoundPlugin extends Plugin {
             fos.close();
             is.close();
 
-            Uri soundUri = Uri.fromFile(destFile);
+            Uri soundUri = FileProvider.getUriForFile(context, context.getPackageName() + ".fileprovider", destFile);
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 nm.deleteNotificationChannel(CHANNEL_ID);
