@@ -1,7 +1,20 @@
+import { useEffect } from 'react'
 import { useAuth } from '@/context/auth-context'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { AuthLayout } from '@/layouts/auth-layout'
 import { AppLayout } from '@/layouts/app-layout'
+
+async function requestNotificationPermission() {
+  try {
+    const { LocalNotifications } = await import('@capacitor/local-notifications')
+    const perm = await LocalNotifications.requestPermissions()
+    if (perm.display === 'denied') {
+      console.warn('Permiso de notificaciones denegado')
+    }
+  } catch {
+    // ignore
+  }
+}
 
 function LoadingScreen() {
   return (
@@ -21,6 +34,10 @@ function LoadingScreen() {
 
 export default function App() {
   const { user, loading } = useAuth()
+
+  useEffect(() => {
+    if (user) requestNotificationPermission()
+  }, [user])
 
   if (loading) return <LoadingScreen />
 

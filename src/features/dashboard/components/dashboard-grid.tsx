@@ -1,10 +1,43 @@
+import { useState, useCallback } from 'react'
 import { useTasks } from '@/features/dashboard/hooks/use-tasks'
 import { TaskCard } from '@/features/dashboard/components/task-card'
+import { crearTarea } from '@/features/dashboard/services/tasks-repository'
 import { LoadingSpinner } from '@/components/shared/loading-spinner'
-import { AlertTriangle, CheckCircle2, Clock, ListTodo } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Clock, ListTodo, Send } from 'lucide-react'
 
 export function DashboardGrid() {
   const { tareas, loading, error, refresh, toggleTask, deleteTask } = useTasks()
+  const [nuevaText, setNuevaText] = useState('')
+  const [creating, setCreating] = useState(false)
+
+  const handleCreate = useCallback(async () => {
+    const text = nuevaText.trim()
+    if (!text || creating) return
+    setCreating(true)
+    try {
+      await crearTarea({
+        texto_original: text,
+        texto_pulido: text,
+        titulo: text.length > 60 ? text.slice(0, 60) + '...' : text,
+        descripcion: text.length > 60 ? text : null,
+        categoria: 'Tarea Pendiente',
+        nivel_urgencia: 'Medio',
+      })
+      setNuevaText('')
+      refresh()
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setCreating(false)
+    }
+  }, [nuevaText, creating, refresh])
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      handleCreate()
+    }
+  }, [handleCreate])
 
   if (loading) {
     return (
@@ -90,6 +123,24 @@ export function DashboardGrid() {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Crear tarea rápida */}
+        <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 shadow-xs dark:border-gray-700 dark:bg-gray-900">
+          <input
+            value={nuevaText}
+            onChange={(e) => setNuevaText(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Escribe una tarea y presiona Enter..."
+            className="flex-1 bg-transparent text-sm text-gray-900 placeholder-gray-400 outline-none dark:text-white dark:placeholder-gray-500"
+          />
+          <button
+            onClick={handleCreate}
+            disabled={creating || !nuevaText.trim()}
+            className="flex h-8 w-8 items-center justify-center rounded-lg bg-vix-600 text-white transition-colors hover:bg-vix-700 disabled:opacity-40"
+          >
+            <Send className="h-4 w-4" />
+          </button>
         </div>
 
         {/* Críticas */}

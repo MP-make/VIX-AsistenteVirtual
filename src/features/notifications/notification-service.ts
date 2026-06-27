@@ -31,6 +31,28 @@ export async function scheduleTaskNotifications(tareas: Tarea[]) {
     const id = parseInt(tarea.id.replace(/-/g, '').slice(0, 8), 16)
     let notifCount = 0
 
+    const primerNotif = new Date(ahora.getTime() + 1 * 60 * 1000)
+    if (primerNotif < vencimiento) {
+      const remainingMs = vencimiento.getTime() - primerNotif.getTime()
+      const remainingHoras = Math.floor(remainingMs / (1000 * 60 * 60))
+      const remainingMin = Math.floor((remainingMs % (1000 * 60 * 60)) / (1000 * 60))
+      const body = remainingHoras > 0
+        ? `"${tarea.titulo}" — restan ${remainingHoras}h ${remainingMin}min`
+        : `"${tarea.titulo}" — restan ${remainingMin}min ⏰`
+      const notifId = id + notifCount
+      scheduledIds.push(notifId.toString())
+      await LocalNotifications.schedule({
+        notifications: [{
+          id: notifId,
+          title: `🔔 ${tarea.titulo}`,
+          body,
+          smallIcon: 'ic_launcher_foreground',
+          extra: { taskId: tarea.id },
+        }],
+      })
+      notifCount++
+    }
+
     for (let i = 1; i <= maxNotifs; i++) {
       const fechaNotif = new Date(ahora.getTime() + i * intervalo * 60 * 1000)
       if (fechaNotif >= vencimiento) break

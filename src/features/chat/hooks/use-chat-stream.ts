@@ -1,5 +1,8 @@
 import { useState, useCallback } from 'react'
 import { sendChatMessage } from '@/features/chat/services/chat-service'
+import { crearTareaLocal } from '@/features/chat/services/local-task-parser'
+import { scheduleTaskNotifications } from '@/features/notifications/notification-service'
+import { obtenerTareas } from '@/features/dashboard/services/tasks-repository'
 import type { ChatMessage, Tarea } from '@/types'
 
 export function useChatStream() {
@@ -42,19 +45,31 @@ export function useChatStream() {
       }
 
       setMessages(prev => [...prev, assistantMsg])
-    } catch (err) {
-      console.error('[ChatStream]', err)
-      const msg = err instanceof Error ? err.message : 'Error al procesar mensaje'
-      setError(msg)
-      setMessages(prev => [
-        ...prev,
-        {
+    } catch {
+      try {
+        const { titulo } = await crearTareaLocal(text)
+        const tareas = await obtenerTareas()
+        scheduleTaskNotifications(tareas).catch(() => {})
+        const assistantMsg: ChatMessage = {
           id: crypto.randomUUID(),
           role: 'assistant',
-          content: `Error: ${msg}`,
+          content: `✅ Tarea creada: "${titulo}"`,
           timestamp: new Date().toISOString(),
-        },
-      ])
+        }
+        setMessages(prev => [...prev, assistantMsg])
+      } catch (fallbackErr) {
+        const msg = fallbackErr instanceof Error ? fallbackErr.message : 'Error al crear tarea'
+        setError(msg)
+        setMessages(prev => [
+          ...prev,
+          {
+            id: crypto.randomUUID(),
+            role: 'assistant',
+            content: `Error: ${msg}`,
+            timestamp: new Date().toISOString(),
+          },
+        ])
+      }
     } finally {
       setIsLoading(false)
     }
