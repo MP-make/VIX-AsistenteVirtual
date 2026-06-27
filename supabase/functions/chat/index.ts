@@ -35,10 +35,18 @@ Tu trabajo:
 2. Si es una tarea (algo que hay que hacer, comprar, estudiar, preparar, etc.), extrae la información estructurada en el campo "tarea".
 3. Si es conversación normal, responde de forma natural y amable sin rellenar el campo "tarea".
 4. Siempre responde en "respuesta" de forma natural y conversacional, como un amigo.
+5. IMPORTANTE: Si el usuario menciona una fecha, plazo o día específico (ej: "mañana", "en 3 días", "próximo lunes", "viernes", "para el 15 de julio"), calcula correctamente dias_plazo basándote en la fecha actual.
+6. Si el usuario menciona una hora específica (ej: "antes de las 8", "a las 3pm", "para las 9:30"), extrae la hora en hora_limite (0-23) y minuto_limite (0-59).
 
 La fecha actual es: ${new Date().toISOString()}
 
-Ejemplos de tareas: "comprar pan", "tengo que estudiar para el examen", "ensayar exposición mañana", "terminar tesis capítulo 3", "tarea urgente para hoy".
+Ejemplos de tareas con fechas:
+  - "comprar pan mañana" → dias_plazo: 1
+  - "estudiar para el examen en 3 días" → dias_plazo: 3
+  - "entregar tesis el próximo lunes" → dias_plazo: calcular según fecha actual
+  - "tarea urgente para hoy" → dias_plazo: 0
+  - "enviar informe antes de las 8pm" → dias_plazo: 0, hora_limite: 20, minuto_limite: 0
+  - "presentación a las 9:30 am del viernes" → dias_plazo: calcular, hora_limite: 9, minuto_limite: 30
 Ejemplos de chat: "hola", "ok", "gracias", "buenos días", "quién eres?", cualquier pregunta general.`;
 
   const schema = {
@@ -55,6 +63,8 @@ Ejemplos de chat: "hola", "ok", "gracias", "buenos días", "quién eres?", cualq
           categoria: { type: 'string', enum: ['Dashboard', 'Tarea Pendiente', 'Idea', 'Práctica Calificada', 'Tesis'] },
           nivel_urgencia: { type: 'string', enum: ['Crítico', 'Medio', 'Baja', 'Idea'] },
           dias_plazo: { type: 'integer' },
+          hora_limite: { type: 'integer' },
+          minuto_limite: { type: 'integer' },
         },
         required: ['texto_pulido', 'titulo', 'categoria', 'nivel_urgencia'],
       },
@@ -95,9 +105,22 @@ Ejemplos de chat: "hola", "ok", "gracias", "buenos días", "quién eres?", cualq
   let tareaGuardada = null;
   if (result.tipo === 'tarea' && result.tarea) {
     let fecha_vencimiento: string | null = null;
-    if (result.tarea.dias_plazo && result.tarea.dias_plazo > 0) {
+    const t = result.tarea;
+    if (t.dias_plazo !== null && t.dias_plazo !== undefined) {
       const dateCalculated = new Date();
-      dateCalculated.setDate(dateCalculated.getDate() + result.tarea.dias_plazo);
+      dateCalculated.setDate(dateCalculated.getDate() + t.dias_plazo);
+      if (t.hora_limite !== null && t.hora_limite !== undefined) {
+        dateCalculated.setHours(t.hora_limite, t.minuto_limite ?? 0, 0, 0);
+      } else {
+        dateCalculated.setHours(23, 59, 0, 0);
+      }
+      fecha_vencimiento = dateCalculated.toISOString();
+    } else if (t.hora_limite !== null && t.hora_limite !== undefined) {
+      const dateCalculated = new Date();
+      dateCalculated.setHours(t.hora_limite, t.minuto_limite ?? 0, 0, 0);
+      if (dateCalculated <= new Date()) {
+        dateCalculated.setDate(dateCalculated.getDate() + 1);
+      }
       fecha_vencimiento = dateCalculated.toISOString();
     }
 

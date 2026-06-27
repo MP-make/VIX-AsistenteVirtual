@@ -1,7 +1,16 @@
+import { useState, useCallback } from 'react'
 import { Checkbox } from '@/components/ui/checkbox'
 import { formatDateShort, isOverdue } from '@/utils/date-helpers'
 import { Trash2, Clock, AlertTriangle } from 'lucide-react'
 import type { Tarea } from '@/types'
+import { FloatingPoints } from '@/features/dashboard/components/floating-points'
+
+const PUNTOS_POR_URGENCIA: Record<string, number> = {
+  Crítico: 30,
+  Medio: 20,
+  Baja: 10,
+  Idea: 5,
+}
 
 interface TaskCardProps {
   task: Tarea
@@ -25,8 +34,18 @@ const categoryBadge: Record<string, string> = {
 }
 
 export function TaskCard({ task, onToggle, onDelete }: TaskCardProps) {
+  const [showPoints, setShowPoints] = useState(false)
+  const [puntosGanados, setPuntosGanados] = useState(0)
   const overdue = isOverdue(task.fecha_vencimiento) && !task.completada
   const borderColor = task.completada ? 'border-l-gray-300 dark:border-l-gray-600' : (borderColors[task.nivel_urgencia] ?? 'border-l-gray-300')
+
+  const handleToggle = useCallback((checked: boolean) => {
+    if (checked) {
+      setPuntosGanados(PUNTOS_POR_URGENCIA[task.nivel_urgencia] ?? 10)
+      setShowPoints(true)
+    }
+    onToggle(task.id, checked)
+  }, [task.id, task.nivel_urgencia, onToggle])
 
   return (
     <div
@@ -37,9 +56,13 @@ export function TaskCard({ task, onToggle, onDelete }: TaskCardProps) {
       <div className="flex items-start gap-3">
         <Checkbox
           checked={task.completada}
-          onChange={(checked) => onToggle(task.id, checked)}
+          onChange={handleToggle}
           className="mt-0.5"
         />
+
+        {showPoints && (
+          <FloatingPoints puntos={puntosGanados} onDone={() => setShowPoints(false)} />
+        )}
 
         <div className="min-w-0 flex-1">
           <h3

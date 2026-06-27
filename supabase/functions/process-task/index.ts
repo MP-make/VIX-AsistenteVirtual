@@ -10,6 +10,8 @@ interface GeminiStructuredOutput {
   categoria: CategoriaTarea;
   nivel_urgencia: UrgenciaTarea;
   dias_plazo: number | null;
+  hora_limite: number | null;
+  minuto_limite: number | null;
 }
 
 const corsHeaders = {
@@ -44,6 +46,7 @@ export default {
 Objetivos obligatorios:
 1. Corrige errores gramaticales, muletillas y malas transcripciones en 'texto_pulido'.
 2. Extrae metadatos estructurales de la tarea basándote lógicamente en los plazos.
+3. Si el usuario menciona una hora específica (ej: "antes de las 8", "a las 3pm", "para las 9:30"), extrae la hora en hora_limite (0-23) y minuto_limite (0-59).
 La fecha actual es: ${new Date().toISOString()}`;
 
       const schemaEstructurado = {
@@ -55,6 +58,8 @@ La fecha actual es: ${new Date().toISOString()}`;
           categoria: { type: 'string', enum: ['Dashboard', 'Tarea Pendiente', 'Idea', 'Práctica Calificada', 'Tesis'] },
           nivel_urgencia: { type: 'string', enum: ['Crítico', 'Medio', 'Baja', 'Idea'] },
           dias_plazo: { type: 'integer' },
+          hora_limite: { type: 'integer' },
+          minuto_limite: { type: 'integer' },
         },
         required: ['texto_pulido', 'titulo', 'categoria', 'nivel_urgencia'],
       };
@@ -86,9 +91,21 @@ La fecha actual es: ${new Date().toISOString()}`;
       const aiResult: GeminiStructuredOutput = JSON.parse(rawTextResult);
 
       let fecha_vencimiento: string | null = null;
-      if (aiResult.dias_plazo && aiResult.dias_plazo > 0) {
+      if (aiResult.dias_plazo !== null && aiResult.dias_plazo !== undefined) {
         const dateCalculated = new Date();
         dateCalculated.setDate(dateCalculated.getDate() + aiResult.dias_plazo);
+        if (aiResult.hora_limite !== null && aiResult.hora_limite !== undefined) {
+          dateCalculated.setHours(aiResult.hora_limite, aiResult.minuto_limite ?? 0, 0, 0);
+        } else {
+          dateCalculated.setHours(23, 59, 0, 0);
+        }
+        fecha_vencimiento = dateCalculated.toISOString();
+      } else if (aiResult.hora_limite !== null && aiResult.hora_limite !== undefined) {
+        const dateCalculated = new Date();
+        dateCalculated.setHours(aiResult.hora_limite, aiResult.minuto_limite ?? 0, 0, 0);
+        if (dateCalculated <= new Date()) {
+          dateCalculated.setDate(dateCalculated.getDate() + 1);
+        }
         fecha_vencimiento = dateCalculated.toISOString();
       }
 

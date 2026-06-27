@@ -1,12 +1,12 @@
 import type { Tarea } from '@/types'
 
-type Urgencia = 'Crítico' | 'Medio' | 'Baja' | 'Idea'
-
-const intervalMap: Record<Urgencia, number> = {
-  'Crítico': 60,
-  'Medio': 240,
-  'Baja': 720,
-  'Idea': 1440,
+function calcularIntervalo(horasRestantes: number): number {
+  if (horasRestantes > 48) return 24 * 60
+  if (horasRestantes > 24) return 8 * 60
+  if (horasRestantes > 4) return 60
+  if (horasRestantes > 1) return 30
+  if (horasRestantes > 0.5) return 15
+  return 5
 }
 
 let scheduledIds: string[] = []
@@ -22,31 +22,40 @@ export async function scheduleTaskNotifications(tareas: Tarea[]) {
   for (const tarea of pendientes) {
     const vencimiento = new Date(tarea.fecha_vencimiento!)
     const ahora = new Date()
-    const diasRestantes = Math.ceil((vencimiento.getTime() - ahora.getTime()) / (1000 * 60 * 60 * 24))
-    if (diasRestantes < 0) continue
+    const diffMs = vencimiento.getTime() - ahora.getTime()
+    if (diffMs <= 0) continue
 
-    const urgencia = (tarea.nivel_urgencia || 'Medio') as Urgencia
-    const intervalo = intervalMap[urgencia] || 1440
-    const numNotifs = Math.min(Math.ceil(diasRestantes * (1440 / intervalo)), 10)
+    const horasRestantes = diffMs / (1000 * 60 * 60)
+    const intervalo = calcularIntervalo(horasRestantes)
+    const maxNotifs = Math.min(Math.ceil(horasRestantes * 60 / intervalo), 30)
     const id = parseInt(tarea.id.replace(/-/g, '').slice(0, 8), 16)
+    let notifCount = 0
 
-    for (let i = 0; i < numNotifs; i++) {
-      const notifId = id + i
-      const fechaNotif = new Date(ahora.getTime() + (i + 1) * intervalo * 60 * 1000)
-      if (fechaNotif > vencimiento) break
+    for (let i = 1; i <= maxNotifs; i++) {
+      const fechaNotif = new Date(ahora.getTime() + i * intervalo * 60 * 1000)
+      if (fechaNotif >= vencimiento) break
 
+      const remainingMs = vencimiento.getTime() - fechaNotif.getTime()
+      const remainingHoras = Math.floor(remainingMs / (1000 * 60 * 60))
+      const remainingMin = Math.floor((remainingMs % (1000 * 60 * 60)) / (1000 * 60))
+
+      const body = remainingHoras > 0
+        ? `"${tarea.titulo}" — restan ${remainingHoras}h ${remainingMin}min`
+        : `"${tarea.titulo}" — restan ${remainingMin}min ⏰`
+
+      const notifId = id + notifCount
       scheduledIds.push(notifId.toString())
+
       await LocalNotifications.schedule({
         notifications: [{
           id: notifId,
-          title: urgencia === 'Crítico' ? '⚠️ Tarea Crítica' : `📌 ${tarea.titulo}`,
-          body: urgencia === 'Crítico'
-            ? `¡URGENTE! "${tarea.titulo}" vence ${new Date(tarea.fecha_vencimiento!).toLocaleDateString('es-PE', { day: 'numeric', month: 'short' })}`
-            : `"${tarea.titulo}" — vence ${new Date(tarea.fecha_vencimiento!).toLocaleDateString('es-PE', { day: 'numeric', month: 'short' })}`,
+          title: `🔔 ${tarea.titulo}`,
+          body,
           smallIcon: 'ic_launcher_foreground',
           extra: { taskId: tarea.id },
         }],
       })
+      notifCount++
     }
   }
 }

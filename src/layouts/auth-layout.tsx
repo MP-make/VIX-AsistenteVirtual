@@ -4,7 +4,7 @@ export function AuthLayout() {
   const { signIn } = useAuth()
 
   return (
-    <div className="flex min-h-screen min-h-dvh">
+    <div className="flex min-h-screen min-h-dvh pb-safe">
       {/* Desktop: left half video */}
       <div className="hidden lg:relative lg:block lg:w-1/2 lg:overflow-hidden">
         <video

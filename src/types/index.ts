@@ -5,6 +5,16 @@ export interface Usuario {
   id: string;
   email: string;
   nombre: string | null;
+  puntos: number;
+  creado_at: string;
+}
+
+export interface Recompensa {
+  id: string;
+  user_id: string;
+  tarea_id: string | null;
+  puntos: number;
+  accion: string;
   creado_at: string;
 }
 

@@ -1,5 +1,8 @@
-import { Sparkles, Clock, AlertTriangle } from 'lucide-react'
+import { useState } from 'react'
+import { Sparkles, Clock, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react'
 import type { ChatMessage } from '@/types'
+
+const MAX_CHARS = 200
 
 interface ChatBubbleProps {
   message: ChatMessage
@@ -7,6 +10,9 @@ interface ChatBubbleProps {
 
 export function ChatBubble({ message }: ChatBubbleProps) {
   const isUser = message.role === 'user'
+  const [expanded, setExpanded] = useState(false)
+  const isLong = message.content.length > MAX_CHARS
+  const displayText = isLong && !expanded ? message.content.slice(0, MAX_CHARS) + '...' : message.content
 
   return (
     <div className={`flex items-start gap-3 ${isUser ? 'flex-row-reverse' : ''}`}>
@@ -24,7 +30,17 @@ export function ChatBubble({ message }: ChatBubbleProps) {
               : 'rounded-tl-sm bg-gray-100 text-gray-800 ring-1 ring-gray-200 dark:bg-white/5 dark:text-gray-200 dark:ring-white/10'
           }`}
         >
-          <p>{message.content}</p>
+          <p className="whitespace-pre-wrap break-words">{displayText}</p>
+          {isLong && (
+            <button
+              onClick={() => setExpanded(!expanded)}
+              className={`mt-1 flex items-center gap-1 text-xs font-medium ${
+                isUser ? 'text-vix-200' : 'text-vix-600 dark:text-vix-400'
+              }`}
+            >
+              {expanded ? <>Ver menos <ChevronUp className="h-3 w-3" /></> : <>Ver más <ChevronDown className="h-3 w-3" /></>}
+            </button>
+          )}
 
           {message.task && (
             <div

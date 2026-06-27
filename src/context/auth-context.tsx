@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { Capacitor } from '@capacitor/core';
 import { supabase } from '@/config/supabase-client';
 import type { AuthState } from '@/types';
 import type { Session } from '@supabase/supabase-js';
@@ -10,12 +11,23 @@ interface AuthContextType extends AuthState {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-function getUserFromSession(session: Session | null) {
+async function getUserFromSession(session: Session | null) {
   if (!session?.user) return null;
+
+  let puntos = 0;
+  const { data } = await supabase
+    .from('usuarios')
+    .select('puntos')
+    .eq('id', session.user.id)
+    .single();
+
+  if (data) puntos = data.puntos;
+
   return {
     id: session.user.id,
     email: session.user.email ?? '',
     nombre: session.user.user_metadata?.full_name ?? null,
+    puntos,
     creado_at: session.user.created_at,
   };
 }
@@ -28,20 +40,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setState({
-        session,
-        user: getUserFromSession(session),
-        loading: false,
-      });
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      const user = await getUserFromSession(session);
+      setState({ session, user, loading: false });
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: string, session: Session | null) => {
-      setState({
-        session,
-        user: getUserFromSession(session),
-        loading: false,
-      });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event: string, session: Session | null) => {
+      const user = await getUserFromSession(session);
+      setState({ session, user, loading: false });
     });
 
     return () => subscription.unsubscribe();
@@ -71,8 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signIn = async () => {
-    const isNative = !!(window as any).Capacitor?.isNative;
-    if (isNative) {
+    if (Capacitor.isNativePlatform()) {
       const { Browser } = await import('@capacitor/browser');
       const { data: { url } } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -81,7 +86,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           skipBrowserRedirect: true,
         },
       });
-      if (url) await Browser.open({ url, windowName: '_blank' });
+      if (url) await Browser.open({ url, windowName: '_system' });
     } else {
       const { data: { url } } = await supabase.auth.signInWithOAuth({
         provider: 'google',

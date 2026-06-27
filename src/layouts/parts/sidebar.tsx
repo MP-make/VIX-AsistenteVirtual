@@ -5,6 +5,7 @@ import {
   LayoutDashboard,
   MessageSquare,
   ListTodo,
+  User,
   Sun,
   Moon,
   LogOut,
@@ -23,6 +24,7 @@ export function Sidebar({ onNavClick }: SidebarProps) {
   const isChat = pathname === '/chat'
   const isTareas = pathname === '/tareas'
   const isDashboard = pathname === '/dashboard'
+  const isProfile = pathname === '/perfil'
 
   const initials = user?.nombre
     ? user.nombre.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()
@@ -42,7 +44,7 @@ export function Sidebar({ onNavClick }: SidebarProps) {
         </div>
       </div>
 
-      <nav className="flex-1 space-y-1 px-3 py-4">
+      <nav className="hidden lg:block flex-1 space-y-1 px-3 py-4">
         <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
           Navegación
         </p>
@@ -86,6 +88,18 @@ export function Sidebar({ onNavClick }: SidebarProps) {
         >
           <LayoutDashboard className="h-4 w-4" />
           Panel
+        </button>
+
+        <button
+          onClick={() => { navigate('/perfil'); onNavClick?.() }}
+          className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${
+            isProfile
+              ? 'bg-vix-50 text-vix-700 dark:bg-vix-900/30 dark:text-vix-300'
+              : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'
+          }`}
+        >
+          <User className="h-4 w-4" />
+          Perfil
         </button>
       </nav>
 

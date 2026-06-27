@@ -1,15 +1,16 @@
 import { useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Sidebar } from '@/layouts/parts/sidebar'
+import { BottomNav } from '@/layouts/parts/bottom-nav'
 import { ChatViewport } from '@/features/chat/components/chat-viewport'
 import { ChatInput } from '@/features/chat/components/chat-input'
 import { DashboardGrid } from '@/features/dashboard/components/dashboard-grid'
 import { RealDashboard } from '@/features/dashboard/components/real-dashboard'
+import { ProfilePage } from '@/features/profile/components/profile-page'
 import { useChatStream } from '@/features/chat/hooks/use-chat-stream'
-import { Menu, LayoutDashboard, MessageSquare, ListTodo } from 'lucide-react'
+import { MessageSquare, ListTodo, LayoutDashboard, User } from 'lucide-react'
 
 export function AppLayout() {
-  const [sidebarOpen, setSidebarOpen] = useState(false)
   const [audioTranscript, setAudioTranscript] = useState<string>()
   const location = useLocation()
   const navigate = useNavigate()
@@ -17,6 +18,7 @@ export function AppLayout() {
   const isChat = pathname === '/chat'
   const isTareas = pathname === '/tareas'
   const isDashboard = pathname === '/dashboard'
+  const isProfile = pathname === '/perfil'
 
   const chat = useChatStream()
 
@@ -30,31 +32,14 @@ export function AppLayout() {
         <div className="absolute bottom-0 left-0 right-0 h-60 bg-gradient-to-t from-vix-600/10 to-transparent" />
       </div>
       <div className="relative z-10 flex flex-1">
-      <div
-        className={`fixed inset-0 z-30 bg-black/60 backdrop-blur-sm transition-opacity lg:hidden ${
-          sidebarOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
-        }`}
-        onClick={() => setSidebarOpen(false)}
-      />
-
-      <div
-        className={`fixed inset-y-0 left-0 z-40 w-72 transform transition-transform duration-300 ease-out lg:relative lg:translate-x-0 ${
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
-      >
-        <Sidebar onNavClick={() => setSidebarOpen(false)} />
+      <div className="hidden lg:block">
+        <Sidebar />
       </div>
 
-      <main className="flex flex-1 flex-col min-w-0">
+      <main className="flex flex-1 flex-col min-w-0 pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-0">
         <header className="flex items-center gap-3 border-b border-gray-200 px-4 py-3 backdrop-blur-lg dark:border-gray-800/30 dark:bg-header-warm dark:shadow-[0_1px_0_0_rgba(255,255,255,0.03)]">
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-200 lg:hidden"
-          >
-            <Menu className="h-5 w-5" />
-          </button>
 
-          <div className="flex items-center gap-1 rounded-lg bg-gray-100 p-0.5 dark:bg-gray-900">
+          <div className="hidden lg:flex items-center gap-1 rounded-lg bg-gray-100 p-0.5 dark:bg-gray-900">
             <button
               onClick={() => navigate('/chat')}
               className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all ${isChat ? activeClass : inactiveClass}`}
@@ -76,10 +61,19 @@ export function AppLayout() {
               <LayoutDashboard className="h-3.5 w-3.5" />
               Panel
             </button>
+            <button
+              onClick={() => navigate('/perfil')}
+              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all ${isProfile ? activeClass : inactiveClass}`}
+            >
+              <User className="h-3.5 w-3.5" />
+              Perfil
+            </button>
           </div>
         </header>
 
-        {isDashboard ? (
+        {isProfile ? (
+          <ProfilePage />
+        ) : isDashboard ? (
           <RealDashboard />
         ) : isTareas ? (
           <DashboardGrid />
@@ -101,6 +95,7 @@ export function AppLayout() {
         )}
       </main>
       </div>
+      <BottomNav />
     </div>
   )
 }

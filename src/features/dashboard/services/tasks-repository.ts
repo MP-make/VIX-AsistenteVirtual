@@ -50,6 +50,10 @@ export async function toggleCompletada(id: string, completada: boolean): Promise
     .eq('id', id);
 
   if (error) throw error;
+
+  if (completada) {
+    await supabase.rpc('completar_tarea_con_puntos', { tarea_id: id });
+  }
 }
 
 export async function eliminarTarea(id: string): Promise<void> {

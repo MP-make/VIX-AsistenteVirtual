@@ -38,6 +38,7 @@ export default function App() {
       <Route path="/chat" element={<AppLayout />} />
       <Route path="/tareas" element={<AppLayout />} />
       <Route path="/dashboard" element={<AppLayout />} />
+      <Route path="/perfil" element={<AppLayout />} />
       <Route path="*" element={<Navigate to="/chat" replace />} />
     </Routes>
   )
