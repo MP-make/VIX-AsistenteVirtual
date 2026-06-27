@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Mic, Send, Square, Sparkles, Loader2 } from 'lucide-react'
+import { Mic, Send, Square, Brain, Loader2 } from 'lucide-react'
 import { useVoiceRecorder } from '@/features/chat/hooks/use-voice-recorder'
 import { AudioWave } from '@/components/shared/audio-wave'
 import { transcribirAudio } from '@/features/chat/services/chat-service'
@@ -70,7 +70,7 @@ export function ChatInput({ onSend, isStreaming, onAudioTranscriptReady }: ChatI
             {transcribing ? (
               <Loader2 className="h-4 w-4 animate-spin text-vix-400" />
             ) : (
-              <Sparkles className="h-4 w-4 text-vix-400" />
+              <Brain className="h-4 w-4 text-vix-400" />
             )}
             <span className="text-xs font-medium uppercase tracking-widest text-vix-400/80">
               {transcribing ? 'Transcribiendo audio...' : 'Grabando audio'}

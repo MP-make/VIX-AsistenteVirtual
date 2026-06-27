@@ -15,19 +15,25 @@ async function getUserFromSession(session: Session | null) {
   if (!session?.user) return null;
 
   let puntos = 0;
+  let notif_sound: string | null = null;
   const { data } = await supabase
     .from('usuarios')
-    .select('puntos')
+    .select('puntos, notif_sound')
     .eq('id', session.user.id)
     .single();
 
-  if (data) puntos = data.puntos;
+  if (data) {
+    puntos = data.puntos;
+    notif_sound = data.notif_sound;
+  }
 
   return {
     id: session.user.id,
     email: session.user.email ?? '',
     nombre: session.user.user_metadata?.full_name ?? null,
+    avatar_url: session.user.user_metadata?.avatar_url ?? null,
     puntos,
+    notif_sound,
     creado_at: session.user.created_at,
   };
 }

@@ -1,10 +1,11 @@
 import { useAuth } from '@/context/auth-context'
 import { useTheme } from '@/context/theme-context'
-import { Sun, Moon, LogOut, Trophy, Calendar, TrendingUp, Star, ChevronRight } from 'lucide-react'
+import { Sun, Moon, LogOut, Trophy, Calendar, TrendingUp, Star, ChevronRight, Music, VolumeX, Loader2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/config/supabase-client'
 import type { Recompensa } from '@/types'
 import { obtenerNivel, obtenerProgresoNivel, NIVELES } from '@/features/profile/levels'
+import { NotificationSound } from '@/plugins/notificationsound'
 
 export function ProfilePage() {
   const { user, signOut } = useAuth()
@@ -12,6 +13,8 @@ export function ProfilePage() {
   const [recompensas, setRecompensas] = useState<Recompensa[]>([])
   const [loadingRewards, setLoadingRewards] = useState(true)
   const [puntos, setPuntos] = useState(user?.puntos ?? 0)
+  const [soundLabel, setSoundLabel] = useState<string>('Predeterminado')
+  const [settingSound, setSettingSound] = useState(false)
 
   const nivel = obtenerNivel(puntos)
   const progreso = obtenerProgresoNivel(puntos)
@@ -20,10 +23,15 @@ export function ProfilePage() {
     (async () => {
       const [resRewards, resPuntos] = await Promise.all([
         supabase.from('recompensas').select('*').order('creado_at', { ascending: false }).limit(20),
-        supabase.from('usuarios').select('puntos').eq('id', user?.id).single(),
+        supabase.from('usuarios').select('puntos, notif_sound').eq('id', user?.id).single(),
       ])
       if (resRewards.data) setRecompensas(resRewards.data as Recompensa[])
-      if (resPuntos.data) setPuntos(resPuntos.data.puntos)
+      if (resPuntos.data) {
+        setPuntos(resPuntos.data.puntos)
+        if (resPuntos.data.notif_sound) {
+          setSoundLabel('Personalizado')
+        }
+      }
       setLoadingRewards(false)
     })()
   }, [user?.id])
@@ -31,6 +39,8 @@ export function ProfilePage() {
   const initials = user?.nombre
     ? user.nombre.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()
     : 'U'
+
+  const avatarSrc = user?.avatar_url ? user.avatar_url.replace('=s96-c', '=s256-c') : null
 
   const indiceNivel = NIVELES.indexOf(nivel)
   const nivelesRestantes = NIVELES.slice(indiceNivel + 1)
@@ -41,9 +51,17 @@ export function ProfilePage() {
         {/* Profile header with level badge */}
         <div className="flex flex-col items-center gap-4 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-900">
           <div className="relative">
-            <div className={`flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br ${nivel.color} text-2xl font-bold text-white shadow-lg`}>
-              {initials}
-            </div>
+            {avatarSrc ? (
+              <img
+                src={avatarSrc}
+                alt={user?.nombre ?? 'Usuario'}
+                className="h-20 w-20 rounded-full border-4 border-white object-cover shadow-lg dark:border-gray-800"
+              />
+            ) : (
+              <div className={`flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br ${nivel.color} text-2xl font-bold text-white shadow-lg`}>
+                {initials}
+              </div>
+            )}
             <div className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full bg-white text-lg shadow-sm dark:bg-gray-800">
               {nivel.icono}
             </div>
@@ -152,6 +170,67 @@ export function ProfilePage() {
           <div className="border-b border-gray-100 px-5 py-3 dark:border-gray-800">
             <h2 className="text-sm font-semibold text-gray-900 dark:text-white">Configuración</h2>
           </div>
+
+          {/* Sound picker */}
+          <button
+            onClick={async () => {
+              if (settingSound) return;
+              setSettingSound(true);
+              try {
+                const { FilePicker } = await import('@capawesome/capacitor-file-picker');
+                const result = await FilePicker.pickFiles({
+                  types: ['audio/*'],
+                  limit: 1,
+                });
+                if (result.files?.length > 0) {
+                  const file = result.files[0];
+                  await NotificationSound.setCustomSound({ fileUri: file.path! });
+                  await supabase.from('usuarios').update({ notif_sound: file.path }).eq('id', user?.id);
+                  setSoundLabel(file.name ?? 'Audio');
+                }
+              } catch (e: unknown) {
+                if (e instanceof Error && e.message?.includes('cancel')) return;
+                setSoundLabel('Predeterminado');
+              } finally {
+                setSettingSound(false);
+              }
+            }}
+            disabled={settingSound}
+            className="flex w-full items-center gap-3 px-5 py-4 text-left text-sm text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50 dark:text-gray-300 dark:hover:bg-gray-800"
+          >
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-800">
+              {settingSound ? (
+                <Loader2 className="h-4 w-4 animate-spin text-vix-500" />
+              ) : (
+                <Music className="h-4 w-4 text-vix-600" />
+              )}
+            </div>
+            <div className="flex-1">
+              <p className="font-medium text-gray-900 dark:text-white">
+                {settingSound ? 'Configurando...' : 'Sonido de notificación'}
+              </p>
+              <p className="text-xs text-gray-400">{soundLabel}</p>
+            </div>
+            <ChevronRight className="h-4 w-4 text-gray-300 dark:text-gray-600" />
+          </button>
+
+          {/* Reset sound */}
+          <button
+            onClick={async () => {
+              await NotificationSound.resetToDefault();
+              await supabase.from('usuarios').update({ notif_sound: null }).eq('id', user?.id);
+              setSoundLabel('Predeterminado');
+            }}
+            className="flex w-full items-center gap-3 px-5 py-4 text-left text-sm text-gray-700 transition-colors hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800"
+          >
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-800">
+              <VolumeX className="h-4 w-4 text-gray-500" />
+            </div>
+            <div className="flex-1">
+              <p className="font-medium text-gray-900 dark:text-white">Restablecer sonido</p>
+              <p className="text-xs text-gray-400">Volver al sonido por defecto</p>
+            </div>
+          </button>
 
           <button
             onClick={toggleTheme}

@@ -5,8 +5,10 @@ export interface Usuario {
   id: string;
   email: string;
   nombre: string | null;
+  avatar_url: string | null;
   puntos: number;
   creado_at: string;
+  notif_sound?: string | null;
 }
 
 export interface Recompensa {

@@ -26,7 +26,7 @@ const DIAS_SEMANA: Record<string, number> = {
   sábado: 6, sabado: 6, sab: 6, sáb: 6,
 }
 
-function extraerHora(texto: string): { hora: number; minuto: number } | null {
+function extraerHora(texto: string, ahora: Date = new Date()): { hora: number; minuto: number } | null {
   const regexHora = /(\d{1,2})(?::(\d{2}))?\s*(?:a\.?\s*m\.?|am|p\.?\s*m\.?|pm)?/gi
   const match = regexHora.exec(texto)
   if (!match) return null
@@ -39,10 +39,32 @@ function extraerHora(texto: string): { hora: number; minuto: number } | null {
     if (hora < 12) hora += 12
   } else if (sufijo.includes('a.m') || sufijo.includes('am') || sufijo.includes('a. m')) {
     if (hora === 12) hora = 0
+  } else {
+    const hoyAm = new Date(ahora)
+    hoyAm.setHours(hora, minuto, 0, 0)
+    if (hoyAm <= ahora && hora < 12) {
+      const hoyPm = new Date(ahora)
+      hoyPm.setHours(hora + 12, minuto, 0, 0)
+      if (hoyPm > ahora) hora += 12
+    }
   }
 
   if (hora > 23 || minuto > 59) return null
   return { hora, minuto }
+}
+
+function finSemana(hoy: Date): Date {
+  const d = new Date(hoy)
+  const diasHastaDom = (7 - d.getDay()) % 7
+  if (diasHastaDom === 0) d.setDate(d.getDate() + 7)
+  else d.setDate(d.getDate() + diasHastaDom)
+  d.setHours(23, 59, 0, 0)
+  return d
+}
+
+function finMes(hoy: Date): Date {
+  const d = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0, 23, 59, 0, 0)
+  return d
 }
 
 function extraerFecha(texto: string): Date | null {
@@ -64,6 +86,21 @@ function extraerFecha(texto: string): Date | null {
     const d = new Date(hoy)
     d.setDate(d.getDate() + 2)
     return d
+  }
+
+  // "esta semana" / "esta semana"
+  if (/\best[ae]\s*semana\b/.test(lower)) {
+    return finSemana(hoy)
+  }
+
+  // "este mes" / "esta mes"
+  if (/\best[ae]\s*mes\b/.test(lower)) {
+    return finMes(hoy)
+  }
+
+  // "este año"
+  if (/\best[ae]\s*año\b/.test(lower)) {
+    return new Date(hoy.getFullYear(), 11, 31, 23, 59, 0, 0)
   }
 
   // "en N dias/semana/mes"
@@ -152,6 +189,11 @@ export async function crearTareaLocal(texto: string): Promise<{ titulo: string; 
     d.setHours(hora.hora, hora.minuto, 0, 0)
     if (d > new Date()) {
       fecha_vencimiento = d.toISOString()
+    }
+  } else {
+    const finSemanaActual = finSemana(new Date())
+    if (finSemanaActual > new Date()) {
+      fecha_vencimiento = finSemanaActual.toISOString()
     }
   }
 

@@ -47,14 +47,15 @@ export function useChatStream() {
       setMessages(prev => [...prev, assistantMsg])
     } catch {
       try {
-        const { titulo } = await crearTareaLocal(text)
+        const { tarea } = await crearTareaLocal(text)
         const tareas = await obtenerTareas()
         scheduleTaskNotifications(tareas).catch(() => {})
         const assistantMsg: ChatMessage = {
           id: crypto.randomUUID(),
           role: 'assistant',
-          content: `✅ Tarea creada: "${titulo}"`,
+          content: `✅ Tarea creada`,
           timestamp: new Date().toISOString(),
+          task: tarea ? { ...tarea } : undefined,
         }
         setMessages(prev => [...prev, assistantMsg])
       } catch (fallbackErr) {

@@ -10,6 +10,17 @@ async function requestNotificationPermission() {
     const perm = await LocalNotifications.requestPermissions()
     if (perm.display === 'denied') {
       console.warn('Permiso de notificaciones denegado')
+    } else {
+      await LocalNotifications.schedule({
+        notifications: [{
+          id: 999,
+          title: '🔔 VIX — Notificaciones activadas',
+          body: 'Recibirás recordatorios de tus tareas aquí',
+          schedule: { at: new Date(Date.now() + 3000) },
+          sound: 'default',
+          smallIcon: 'ic_launcher_foreground',
+        }],
+      })
     }
   } catch {
     // ignore

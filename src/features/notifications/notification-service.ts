@@ -1,8 +1,9 @@
 import type { Tarea } from '@/types'
 
 function calcularIntervalo(horasRestantes: number): number {
-  if (horasRestantes > 48) return 24 * 60
-  if (horasRestantes > 24) return 8 * 60
+  if (horasRestantes > 168) return 24 * 60
+  if (horasRestantes > 48) return 12 * 60
+  if (horasRestantes > 24) return 6 * 60
   if (horasRestantes > 4) return 60
   if (horasRestantes > 1) return 30
   if (horasRestantes > 0.5) return 15
@@ -47,7 +48,9 @@ export async function scheduleTaskNotifications(tareas: Tarea[]) {
           title: `🔔 ${tarea.titulo}`,
           body,
           smallIcon: 'ic_launcher_foreground',
+          sound: 'default',
           extra: { taskId: tarea.id },
+          actionTypeId: 'view-task',
         }],
       })
       notifCount++
@@ -74,7 +77,9 @@ export async function scheduleTaskNotifications(tareas: Tarea[]) {
           title: `🔔 ${tarea.titulo}`,
           body,
           smallIcon: 'ic_launcher_foreground',
+          sound: 'default',
           extra: { taskId: tarea.id },
+          actionTypeId: 'view-task',
         }],
       })
       notifCount++

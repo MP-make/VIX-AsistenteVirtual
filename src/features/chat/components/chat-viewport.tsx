@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ChatBubble } from '@/features/chat/components/chat-bubble'
 import { ConfirmationModal } from '@/features/chat/components/confirmation-modal'
-import { Sparkles } from 'lucide-react'
+import { Brain } from 'lucide-react'
 import type { ChatMessage } from '@/types'
 
 interface ChatViewportProps {
@@ -44,9 +44,9 @@ export function ChatViewport({
           {messages.length === 0 && !isStreaming && (
             <div className="flex flex-1 flex-col items-center justify-center gap-5">
               <div className="relative flex h-20 w-20 items-center justify-center">
-                <div className="absolute inset-0 animate-ping rounded-3xl bg-vix-500/25" />
-                <div className="relative flex h-16 w-16 items-center justify-center rounded-3xl bg-gradient-to-br from-vix-500 to-vix-700 shadow-2xl shadow-vix-500/30">
-                  <Sparkles className="h-8 w-8 text-white" />
+                <div className="absolute inset-0 animate-ping rounded-3xl bg-indigo-500/25" />
+                <div className="relative flex h-16 w-16 items-center justify-center rounded-3xl bg-gradient-to-br from-indigo-500 to-violet-600 shadow-2xl shadow-violet-500/30">
+                  <Brain className="h-8 w-8 text-white" />
                 </div>
               </div>
               <div className="text-center">
