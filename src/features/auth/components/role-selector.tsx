@@ -4,7 +4,7 @@ import { supabase } from '@/config/supabase-client'
 import { GraduationCap, Users, Loader2 } from 'lucide-react'
 
 export function RoleSelector() {
-  const { user } = useAuth()
+  const { user, refreshUser } = useAuth()
   const [saving, setSaving] = useState(false)
 
   const handleSelect = async (rol: 'estudiante' | 'padre') => {
@@ -15,7 +15,7 @@ export function RoleSelector() {
         .from('usuarios')
         .update({ tipo_usuario: rol, rol_confirmado: true })
         .eq('id', user.id)
-      window.location.reload()
+      await refreshUser()
     } catch (e) {
       console.error(e)
     } finally {

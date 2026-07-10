@@ -91,17 +91,19 @@ export function Sidebar({ onNavClick }: SidebarProps) {
           Panel
         </button>
 
-        <button
-          onClick={() => { navigate('/hijos'); onNavClick?.() }}
-          className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${
-            isHijos
-              ? 'bg-vix-50 text-vix-700 dark:bg-vix-900/30 dark:text-vix-300'
-              : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'
-          }`}
-        >
-          <Users className="h-4 w-4" />
-          Hijos
-        </button>
+        {user?.tipo_usuario === 'padre' && (
+          <button
+            onClick={() => { navigate('/hijos'); onNavClick?.() }}
+            className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${
+              isHijos
+                ? 'bg-vix-50 text-vix-700 dark:bg-vix-900/30 dark:text-vix-300'
+                : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'
+            }`}
+          >
+            <Users className="h-4 w-4" />
+            Hijos
+          </button>
+        )}
 
         <button
           onClick={() => { navigate('/perfil'); onNavClick?.() }}

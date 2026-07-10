@@ -7,6 +7,7 @@ import type { Session } from '@supabase/supabase-js';
 interface AuthContextType extends AuthState {
   signIn: () => Promise<void>;
   signOut: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -122,8 +123,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
   };
 
+  const refreshUser = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = await getUserFromSession(session);
+    setState({ session, user, loading: false });
+  };
+
   return (
-    <AuthContext.Provider value={{ ...state, signIn, signOut }}>
+    <AuthContext.Provider value={{ ...state, signIn, signOut, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

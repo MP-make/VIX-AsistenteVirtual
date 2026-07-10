@@ -13,7 +13,7 @@ import { GeminiSettings } from '@/features/profile/components/gemini-settings'
 import { uploadAvatar } from '@/services/upload-avatar'
 
 export function ProfilePage() {
-  const { user, signOut } = useAuth()
+  const { user, signOut, refreshUser } = useAuth()
   const { theme, toggleTheme } = useTheme()
   const [recompensas, setRecompensas] = useState<Recompensa[]>([])
   const [loadingRewards, setLoadingRewards] = useState(true)
@@ -342,7 +342,7 @@ export function ProfilePage() {
                       onClick={async () => {
                         if (!user) return
                         await supabase.from('usuarios').update({ tipo_usuario: 'estudiante' }).eq('id', user.id)
-                        window.location.reload()
+                        await refreshUser()
                       }}
                       disabled={user?.tipo_usuario === 'estudiante'}
                       className="flex flex-1 items-center justify-center gap-2 rounded-xl border-2 border-gray-200 px-4 py-3 text-sm font-medium transition-all hover:border-vix-400 disabled:border-vix-500 disabled:bg-vix-50 disabled:text-vix-700 dark:border-gray-700 dark:disabled:bg-vix-900/30 dark:disabled:text-vix-300"
@@ -354,7 +354,7 @@ export function ProfilePage() {
                       onClick={async () => {
                         if (!user) return
                         await supabase.from('usuarios').update({ tipo_usuario: 'padre' }).eq('id', user.id)
-                        window.location.reload()
+                        await refreshUser()
                       }}
                       disabled={user?.tipo_usuario === 'padre'}
                       className="flex flex-1 items-center justify-center gap-2 rounded-xl border-2 border-gray-200 px-4 py-3 text-sm font-medium transition-all hover:border-amber-400 disabled:border-amber-500 disabled:bg-amber-50 disabled:text-amber-700 dark:border-gray-700 dark:disabled:bg-amber-900/30 dark:disabled:text-amber-400"

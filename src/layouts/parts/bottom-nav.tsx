@@ -1,18 +1,20 @@
+import { useAuth } from '@/context/auth-context'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { MessageSquare, ListTodo, LayoutDashboard, User, Users } from 'lucide-react'
 
-const tabs = [
-  { path: '/chat', label: 'Chat', icon: MessageSquare },
-  { path: '/tareas', label: 'Tareas', icon: ListTodo },
-  { path: '/dashboard', label: 'Panel', icon: LayoutDashboard },
-  { path: '/hijos', label: 'Hijos', icon: Users },
-  { path: '/perfil', label: 'Perfil', icon: User },
-] as const
-
 export function BottomNav() {
+  const { user } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const pathname = location.pathname
+
+  const tabs = [
+    { path: '/chat', label: 'Chat', icon: MessageSquare },
+    { path: '/tareas', label: 'Tareas', icon: ListTodo },
+    { path: '/dashboard', label: 'Panel', icon: LayoutDashboard },
+    ...(user?.tipo_usuario === 'padre' ? [{ path: '/hijos', label: 'Hijos', icon: Users }] : []),
+    { path: '/perfil', label: 'Perfil', icon: User },
+  ]
 
   const activeIndex = tabs.findIndex((t) => t.path === pathname)
   const safeIndex = activeIndex === -1 ? 0 : activeIndex

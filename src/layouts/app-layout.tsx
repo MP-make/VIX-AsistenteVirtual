@@ -81,13 +81,15 @@ export function AppLayout() {
               <LayoutDashboard className="h-3.5 w-3.5" />
               Panel
             </button>
-            <button
-              onClick={() => navigate('/hijos')}
-              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all ${isHijos ? activeClass : inactiveClass}`}
-            >
-              <Users className="h-3.5 w-3.5" />
-              Hijos
-            </button>
+            {isPadre && (
+              <button
+                onClick={() => navigate('/hijos')}
+                className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all ${isHijos ? activeClass : inactiveClass}`}
+              >
+                <Users className="h-3.5 w-3.5" />
+                Hijos
+              </button>
+            )}
             <button
               onClick={() => navigate('/perfil')}
               className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all ${isProfile ? activeClass : inactiveClass}`}
