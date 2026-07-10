@@ -11,6 +11,9 @@ include = ["process-task", "send-instant-email", "daily-summary-cron", "transcri
 [functions.process-task]
 verify_jwt = false
 
+[functions.transcribe-audio]
+verify_jwt = false
+
 [edge_functions.secrets]
 GEMINI_API_KEY = ""
 

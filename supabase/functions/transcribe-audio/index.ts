@@ -1,25 +1,13 @@
-import { GoogleGenerativeAI } from 'npm:@google/generative-ai';
-
 const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY') ?? '';
 
 if (!GEMINI_API_KEY) {
   throw new Error('Missing GEMINI_API_KEY environment variable');
 }
 
-const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-
-const model = genAI.getGenerativeModel({
-  model: 'gemini-2.5-pro',
-  systemInstruction:
-    'Eres un transcriptor de audio. Transcribe el audio exactamente como se habla, '
-    + 'incluyendo pausas naturales. No añadas, resumas ni interpretes el contenido. '
-    + 'Responde ÚNICAMENTE con el texto transcrito, sin introducciones ni explicaciones.',
-});
-
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, apikey',
 };
 
 Deno.serve(async (req: Request) => {
@@ -44,12 +32,40 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    const result = await model.generateContent([
-      { text: 'Transcribe este audio:' },
-      { inlineData: { mimeType: mime_type || 'audio/webm', data: audio_base64 } },
-    ]);
+    const geminiRes = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          systemInstruction: {
+            parts: [{
+              text: 'Eres un transcriptor de audio. Transcribe el audio exactamente como se habla, '
+                + 'incluyendo pausas naturales. No añadas, resumas ni interpretes el contenido. '
+                + 'Responde ÚNICAMENTE con el texto transcrito, sin introducciones ni explicaciones.',
+            }],
+          },
+          contents: [{
+            parts: [
+              { text: 'Transcribe este audio:' },
+              { inlineData: { mimeType: mime_type || 'audio/webm', data: audio_base64 } },
+            ],
+          }],
+        }),
+      },
+    );
 
-    const transcript = result.response.text().trim();
+    const data = await geminiRes.json();
+
+    if (!geminiRes.ok) {
+      const errorMsg = data?.error?.message ?? `Gemini API error: ${geminiRes.status}`;
+      return new Response(JSON.stringify({ error: errorMsg }), {
+        status: 502,
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const transcript = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? '';
 
     return new Response(JSON.stringify({ transcript }), {
       status: 200,

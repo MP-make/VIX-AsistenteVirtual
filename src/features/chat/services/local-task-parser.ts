@@ -27,6 +27,11 @@ const DIAS_SEMANA: Record<string, number> = {
 }
 
 function extraerHora(texto: string, ahora: Date = new Date()): { hora: number; minuto: number } | null {
+  const lower = texto.toLowerCase()
+
+  if (/\bmedianoche\b/.test(lower)) return { hora: 0, minuto: 0 }
+  if (/\bmediod[ií]a\b/.test(lower) || /\bmedio\s+d[ií]a\b/.test(lower)) return { hora: 12, minuto: 0 }
+
   const regexHora = /(\d{1,2})(?::(\d{2}))?\s*(?:a\.?\s*m\.?|am|p\.?\s*m\.?|pm)?/gi
   const match = regexHora.exec(texto)
   if (!match) return null
@@ -39,6 +44,10 @@ function extraerHora(texto: string, ahora: Date = new Date()): { hora: number; m
     if (hora < 12) hora += 12
   } else if (sufijo.includes('a.m') || sufijo.includes('am') || sufijo.includes('a. m')) {
     if (hora === 12) hora = 0
+  } else if (hora === 12) {
+    const noonToday = new Date(ahora)
+    noonToday.setHours(12, minuto, 0, 0)
+    if (ahora >= noonToday) hora = 0
   } else {
     const hoyAm = new Date(ahora)
     hoyAm.setHours(hora, minuto, 0, 0)
@@ -144,11 +153,20 @@ function extraerFecha(texto: string): Date | null {
   return null
 }
 
-function extraerUrgencia(texto: string): UrgenciaTarea {
+function extraerUrgencia(texto: string, fechaVencimiento?: string | null): UrgenciaTarea {
   const lower = texto.toLowerCase()
   for (const [palabra, urgencia] of Object.entries(URGENCIAS)) {
     if (lower.includes(palabra)) return urgencia
   }
+
+  if (fechaVencimiento) {
+    const diffMs = new Date(fechaVencimiento).getTime() - Date.now()
+    const horas = diffMs / (1000 * 60 * 60)
+    if (horas <= 0) return 'Crítico'
+    if (horas <= 4) return 'Crítico'
+    if (horas <= 24) return 'Medio'
+  }
+
   return 'Medio'
 }
 
@@ -168,9 +186,8 @@ function extraerTitulo(texto: string): string {
   return t.charAt(0).toUpperCase() + t.slice(1)
 }
 
-export async function crearTareaLocal(texto: string): Promise<{ titulo: string; tarea: any }> {
+export async function crearTareaLocal(texto: string, hijo_id?: string | null, es_personal?: boolean): Promise<{ titulo: string; tarea: any }> {
   const titulo = extraerTitulo(texto) || texto.trim().slice(0, 80)
-  const urgencia = extraerUrgencia(texto)
   const fecha = extraerFecha(texto)
   const hora = extraerHora(texto)
 
@@ -189,6 +206,9 @@ export async function crearTareaLocal(texto: string): Promise<{ titulo: string; 
     d.setHours(hora.hora, hora.minuto, 0, 0)
     if (d > new Date()) {
       fecha_vencimiento = d.toISOString()
+    } else if (hora.hora === 0 && hora.minuto === 0) {
+      d.setDate(d.getDate() + 1)
+      fecha_vencimiento = d.toISOString()
     }
   } else {
     const finSemanaActual = finSemana(new Date())
@@ -196,6 +216,8 @@ export async function crearTareaLocal(texto: string): Promise<{ titulo: string; 
       fecha_vencimiento = finSemanaActual.toISOString()
     }
   }
+
+  const urgencia = extraerUrgencia(texto, fecha_vencimiento)
 
   const tarea = await crearTarea({
     texto_original: texto,
@@ -205,6 +227,8 @@ export async function crearTareaLocal(texto: string): Promise<{ titulo: string; 
     categoria: 'Tarea Pendiente',
     nivel_urgencia: urgencia,
     fecha_vencimiento,
+    hijo_id: hijo_id ?? null,
+    es_personal: es_personal ?? false,
   })
 
   return { titulo, tarea }

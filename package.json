@@ -10,9 +10,11 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@capacitor-community/speech-recognition": "^7.0.1",
     "@capacitor/android": "^8.4.1",
     "@capacitor/app": "^8.1.0",
     "@capacitor/browser": "^8.0.3",
+    "@capacitor/camera": "^8.2.1",
     "@capacitor/cli": "^8.4.1",
     "@capacitor/core": "^8.4.1",
     "@capacitor/filesystem": "^8.1.2",
@@ -20,7 +22,6 @@
     "@capawesome/capacitor-file-picker": "^8.0.3",
     "@supabase/supabase-js": "^2.108.2",
     "@tailwindcss/vite": "^4.3.1",
-    "capacitor-voice-recorder": "^7.0.6",
     "clsx": "^2.1.1",
     "lucide-react": "^1.21.0",
     "react": "^19.2.7",

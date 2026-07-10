@@ -6,10 +6,12 @@ import {
   MessageSquare,
   ListTodo,
   User,
+  Users,
   Sun,
   Moon,
   LogOut,
 } from 'lucide-react'
+import { getInitials } from '@/services/upload-avatar'
 
 interface SidebarProps {
   onNavClick?: () => void
@@ -24,11 +26,10 @@ export function Sidebar({ onNavClick }: SidebarProps) {
   const isChat = pathname === '/chat'
   const isTareas = pathname === '/tareas'
   const isDashboard = pathname === '/dashboard'
+  const isHijos = pathname === '/hijos'
   const isProfile = pathname === '/perfil'
 
-  const initials = user?.nombre
-    ? user.nombre.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()
-    : 'U'
+  const initials = getInitials(user?.nombre)
 
   return (
     <aside className="flex h-full flex-col border-r border-gray-200/80 bg-white dark:border-gray-800/30 dark:bg-surface-warm dark:shadow-[2px_0_12px_-4px_rgba(0,0,0,0.5)]">
@@ -91,6 +92,18 @@ export function Sidebar({ onNavClick }: SidebarProps) {
         </button>
 
         <button
+          onClick={() => { navigate('/hijos'); onNavClick?.() }}
+          className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${
+            isHijos
+              ? 'bg-vix-50 text-vix-700 dark:bg-vix-900/30 dark:text-vix-300'
+              : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'
+          }`}
+        >
+          <Users className="h-4 w-4" />
+          Hijos
+        </button>
+
+        <button
           onClick={() => { navigate('/perfil'); onNavClick?.() }}
           className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${
             isProfile
@@ -113,9 +126,13 @@ export function Sidebar({ onNavClick }: SidebarProps) {
         </button>
 
         <div className="mt-1 flex items-center gap-3 rounded-xl px-3 py-2.5">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-vix-400 to-vix-600 text-xs font-bold text-white shadow-xs">
-            {initials}
-          </div>
+          {user?.avatar_url ? (
+            <img src={user.avatar_url} alt="" className="h-8 w-8 shrink-0 rounded-full object-cover shadow-xs" />
+          ) : (
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-vix-400 to-vix-600 text-xs font-bold text-white shadow-xs">
+              {initials}
+            </div>
+          )}
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium text-gray-900 dark:text-white">
               {user?.nombre ?? 'Usuario'}

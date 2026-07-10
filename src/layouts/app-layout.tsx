@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Sidebar } from '@/layouts/parts/sidebar'
 import { BottomNav } from '@/layouts/parts/bottom-nav'
@@ -7,20 +7,40 @@ import { ChatInput } from '@/features/chat/components/chat-input'
 import { DashboardGrid } from '@/features/dashboard/components/dashboard-grid'
 import { RealDashboard } from '@/features/dashboard/components/real-dashboard'
 import { ProfilePage } from '@/features/profile/components/profile-page'
+import { HijosPage } from '@/features/hijos/components/hijos-page'
 import { useChatStream } from '@/features/chat/hooks/use-chat-stream'
-import { MessageSquare, ListTodo, LayoutDashboard, User } from 'lucide-react'
+import { useHijos } from '@/features/dashboard/hooks/use-hijos'
+import { detectarHijo } from '@/utils/detect-hijo'
+import { useAuth } from '@/context/auth-context'
+import { MessageSquare, ListTodo, LayoutDashboard, User, Users } from 'lucide-react'
 
 export function AppLayout() {
-  const [audioTranscript, setAudioTranscript] = useState<string>()
+  const { user } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
   const pathname = location.pathname
   const isChat = pathname === '/chat'
   const isTareas = pathname === '/tareas'
   const isDashboard = pathname === '/dashboard'
+  const isHijos = pathname === '/hijos'
   const isProfile = pathname === '/perfil'
+  const isPadre = user?.tipo_usuario === 'padre'
 
   const chat = useChatStream()
+  const { hijos } = useHijos()
+
+  const handleChatSend = useCallback(async (text: string) => {
+    if (isPadre) {
+      const detectedHijo = detectarHijo(text, hijos)
+      if (detectedHijo) {
+        await chat.sendMessage(text, detectedHijo.id, false)
+      } else {
+        await chat.sendMessage(text, null, true)
+      }
+    } else {
+      await chat.sendMessage(text, null, true)
+    }
+  }, [chat, hijos, isPadre])
 
   const activeClass = 'bg-white text-gray-900 shadow-sm dark:bg-gray-800 dark:text-white'
   const inactiveClass = 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
@@ -62,6 +82,13 @@ export function AppLayout() {
               Panel
             </button>
             <button
+              onClick={() => navigate('/hijos')}
+              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all ${isHijos ? activeClass : inactiveClass}`}
+            >
+              <Users className="h-3.5 w-3.5" />
+              Hijos
+            </button>
+            <button
               onClick={() => navigate('/perfil')}
               className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all ${isProfile ? activeClass : inactiveClass}`}
             >
@@ -71,7 +98,9 @@ export function AppLayout() {
           </div>
         </header>
 
-        {isProfile ? (
+        {isHijos ? (
+          <HijosPage />
+        ) : isProfile ? (
           <ProfilePage />
         ) : isDashboard ? (
           <RealDashboard />
@@ -81,16 +110,16 @@ export function AppLayout() {
           <ChatViewport
             messages={chat.messages}
             isStreaming={chat.isStreaming}
-            onSendTranscript={chat.sendAudioTranscript}
-            audioTranscript={audioTranscript}
           />
         )}
 
         {isChat && (
           <ChatInput
-            onSend={chat.sendMessage}
+            onSend={handleChatSend}
             isStreaming={chat.isStreaming}
-            onAudioTranscriptReady={(t) => setAudioTranscript(t)}
+            onAudioTranscriptReady={(t) => {
+              if (t.trim()) handleChatSend(t)
+            }}
           />
         )}
       </main>

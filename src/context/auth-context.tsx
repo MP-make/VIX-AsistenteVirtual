@@ -16,24 +16,40 @@ async function getUserFromSession(session: Session | null) {
 
   let puntos = 0;
   let notif_sound: string | null = null;
-  const { data } = await supabase
-    .from('usuarios')
-    .select('puntos, notif_sound')
-    .eq('id', session.user.id)
-    .single();
+  let tipo_usuario: 'estudiante' | 'padre' = 'estudiante';
+  let grado: string | null = null;
+  let edad: number | null = null;
+  let rol_confirmado = false;
+  let dbAvatarUrl: string | null = null;
+  try {
+    const { data } = await supabase
+      .from('usuarios')
+      .select('puntos, notif_sound, tipo_usuario, grado, edad, rol_confirmado, avatar_url')
+      .eq('id', session.user.id)
+      .single();
 
-  if (data) {
-    puntos = data.puntos;
-    notif_sound = data.notif_sound;
-  }
+    if (data) {
+      puntos = data.puntos;
+      notif_sound = data.notif_sound;
+      tipo_usuario = data.tipo_usuario ?? 'estudiante';
+      grado = data.grado;
+      edad = data.edad;
+      rol_confirmado = data.rol_confirmado;
+      dbAvatarUrl = data.avatar_url;
+    }
+  } catch {}
 
   return {
     id: session.user.id,
     email: session.user.email ?? '',
     nombre: session.user.user_metadata?.full_name ?? null,
-    avatar_url: session.user.user_metadata?.avatar_url ?? null,
+    avatar_url: dbAvatarUrl ?? session.user.user_metadata?.avatar_url ?? null,
     puntos,
     notif_sound,
+    tipo_usuario,
+    grado,
+    edad,
+    rol_confirmado,
     creado_at: session.user.created_at,
   };
 }

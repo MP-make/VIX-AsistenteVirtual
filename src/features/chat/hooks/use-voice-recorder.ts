@@ -12,126 +12,129 @@ function isNativePlatform(): boolean {
 
 export function useVoiceRecorder() {
   const [state, setState] = useState<RecorderState>('idle')
-  const [audioBase64, setAudioBase64] = useState<string | null>(null)
-  const [audioMimeType, setAudioMimeType] = useState<string>('audio/webm')
-  const mediaRecorder = useRef<MediaRecorder | null>(null)
-  const mediaStream = useRef<MediaStream | null>(null)
-  const chunks = useRef<Blob[]>([])
-  const resolveRef = useRef<((value: { base64: string | null; mimeType: string } | null) => void) | null>(null)
+  const [transcript, setTranscript] = useState<string | null>(null)
+  const recognitionRef = useRef<any>(null)
+  const nativeResolveRef = useRef<((value: string | null) => void) | null>(null)
 
   const isRecording = state === 'recording'
 
   useEffect(() => {
-    return () => {
-      mediaStream.current?.getTracks().forEach(t => t.stop())
-      mediaStream.current = null
-      if (mediaRecorder.current && mediaRecorder.current.state !== 'inactive') {
-        mediaRecorder.current.stop()
+    if (transcript) {
+      const t = transcript
+      setTranscript(null)
+      if (nativeResolveRef.current) {
+        nativeResolveRef.current(t)
+        nativeResolveRef.current = null
       }
-      mediaRecorder.current = null
     }
-  }, [])
+  }, [transcript])
 
-  const startRecording = useCallback(async () => {
-    try {
-      setState('requesting')
+  const startRecording = useCallback(() => {
+    return new Promise<string | null>(async (resolve) => {
+      try {
+        setState('requesting')
 
-      if (isNativePlatform()) {
-        try {
-          const { VoiceRecorder } = await import('capacitor-voice-recorder')
-          const perm = await VoiceRecorder.requestAudioRecordingPermission()
-          if ((perm as any)?.value === true) {
-            await VoiceRecorder.startRecording()
-            setState('recording')
+        if (isNativePlatform()) {
+          const { SpeechRecognition } = await import('@capacitor-community/speech-recognition')
+
+          const available = await SpeechRecognition.available()
+          if (!available.available) {
+            setState('unsupported')
+            resolve(null)
             return
           }
-          setState('denied')
-          return
-        } catch {
-          setState('denied')
-          return
+
+          const perm = await SpeechRecognition.requestPermissions()
+          if (perm.speechRecognition !== 'granted') {
+            setState('denied')
+            resolve(null)
+            return
+          }
+
+          nativeResolveRef.current = resolve
+
+          const promise = SpeechRecognition.start({
+            language: 'es-MX',
+            maxResults: 1,
+            popup: true,
+          })
+
+          setState('recording')
+
+          promise
+            .then((result) => {
+              const text = result?.matches?.[0] ?? null
+              setTranscript(text)
+            })
+            .catch(() => {
+              setTranscript(null)
+            })
+        } else {
+          const SpeechRecognitionAPI =
+            (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+          if (!SpeechRecognitionAPI) {
+            setState('unsupported')
+            resolve(null)
+            return
+          }
+
+          const recognition = new SpeechRecognitionAPI()
+          recognition.lang = 'es-MX'
+          recognition.continuous = false
+          recognition.interimResults = false
+          recognition.maxAlternatives = 1
+
+          recognitionRef.current = recognition
+
+          let done = false
+
+          recognition.onresult = (event: any) => {
+            if (!done) {
+              done = true
+              resolve(event.results[0][0].transcript)
+            }
+          }
+
+          recognition.onerror = () => {
+            if (!done) {
+              done = true
+              resolve(null)
+            }
+            setState('idle')
+          }
+
+          recognition.onend = () => {
+            if (!done) {
+              done = true
+              resolve(null)
+            }
+            setState('idle')
+          }
+
+          recognition.start()
+          setState('recording')
         }
+      } catch {
+        setState('denied')
+        resolve(null)
       }
-
-      if (!navigator.mediaDevices?.getUserMedia) {
-        setState('unsupported')
-        return
-      }
-
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      mediaStream.current = stream
-
-      const mimeType = MediaRecorder.isTypeSupported('audio/webm')
-        ? 'audio/webm'
-        : ''
-
-      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined)
-      mediaRecorder.current = recorder
-      chunks.current = []
-      resolveRef.current = null
-
-      recorder.ondataavailable = (e: BlobEvent) => {
-        if (e.data.size > 0) chunks.current.push(e.data)
-      }
-
-      recorder.onstop = () => {
-        const mime = recorder.mimeType || 'audio/webm'
-        const blob = new Blob(chunks.current, { type: mime })
-        const reader = new FileReader()
-        reader.onloadend = () => {
-          const b64 = (reader.result as string)?.split(',')[1] ?? null
-          setAudioBase64(b64)
-          setAudioMimeType(mime)
-          chunks.current = []
-          mediaStream.current?.getTracks().forEach(t => t.stop())
-          mediaStream.current = null
-          resolveRef.current?.({ base64: b64, mimeType: mime })
-          resolveRef.current = null
-        }
-        reader.readAsDataURL(blob)
-      }
-
-      recorder.start()
-      setState('recording')
-    } catch {
-      setState('denied')
-    }
+    })
   }, [])
 
-  const stopRecording = useCallback(async (): Promise<{ base64: string | null; mimeType: string } | null> => {
+  const stopRecording = useCallback(async (): Promise<string | null> => {
     if (isNativePlatform()) {
-      try {
-        const { VoiceRecorder } = await import('capacitor-voice-recorder')
-        const res = await VoiceRecorder.stopRecording()
-        const b64 = (res as any)?.value?.recordDataBase64 ?? null
-        if (b64) {
-          setAudioBase64(b64)
-          setAudioMimeType('audio/aac')
-        }
-        setState('idle')
-        return b64 ? { base64: b64, mimeType: 'audio/aac' } : null
-      } catch {
-        setState('idle')
-        return null
+      if (nativeResolveRef.current) {
+        nativeResolveRef.current(null)
+        nativeResolveRef.current = null
       }
     }
 
-    const recorder = mediaRecorder.current
-    if (!recorder || recorder.state === 'inactive') {
-      setState('idle')
-      return null
-    }
+    recognitionRef.current?.stop()
+    recognitionRef.current = null
 
-    const promise = new Promise<{ base64: string | null; mimeType: string } | null>(resolve => {
-      resolveRef.current = resolve
-    })
-
-    recorder.stop()
-    mediaRecorder.current = null
     setState('idle')
+    return null
+  }, [])
 
-    return promise
-  }, [audioBase64])
-
-  return { isRecording, audioBase64, audioMimeType, state, startRecording, stopRecording }
+  return { isRecording, state, startRecording, stopRecording }
 }

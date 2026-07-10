@@ -1,5 +1,15 @@
 import type { Tarea } from '@/types'
 
+const CHANNEL_ID = 'vix-tasks'
+
+function hashId(str: string): number {
+  let hash = 0
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash + str.charCodeAt(i)) | 0
+  }
+  return Math.abs(hash) || 1
+}
+
 function calcularIntervalo(horasRestantes: number): number {
   if (horasRestantes > 168) return 24 * 60
   if (horasRestantes > 48) return 12 * 60
@@ -10,12 +20,16 @@ function calcularIntervalo(horasRestantes: number): number {
   return 5
 }
 
-let scheduledIds: string[] = []
+let scheduledIds: number[] = []
 
 export async function scheduleTaskNotifications(tareas: Tarea[]) {
   const { LocalNotifications } = await import('@capacitor/local-notifications')
 
-  await LocalNotifications.cancel({ notifications: scheduledIds.map(id => ({ id: parseInt(id) })) })
+  try {
+    await LocalNotifications.cancel({ notifications: scheduledIds.map(id => ({ id })) })
+  } catch (e) {
+    console.warn('Error cancelando notificaciones previas:', e)
+  }
   scheduledIds = []
 
   const pendientes = tareas.filter(t => !t.completada && t.fecha_vencimiento)
@@ -29,7 +43,7 @@ export async function scheduleTaskNotifications(tareas: Tarea[]) {
     const horasRestantes = diffMs / (1000 * 60 * 60)
     const intervalo = calcularIntervalo(horasRestantes)
     const maxNotifs = Math.min(Math.ceil(horasRestantes * 60 / intervalo), 30)
-    const id = parseInt(tarea.id.replace(/-/g, '').slice(0, 8), 16)
+    const baseId = hashId(tarea.id)
     let notifCount = 0
 
     const primerNotif = new Date(ahora.getTime() + 1 * 60 * 1000)
@@ -40,20 +54,24 @@ export async function scheduleTaskNotifications(tareas: Tarea[]) {
       const body = remainingHoras > 0
         ? `"${tarea.titulo}" — restan ${remainingHoras}h ${remainingMin}min`
         : `"${tarea.titulo}" — restan ${remainingMin}min ⏰`
-      const notifId = id + notifCount
-      scheduledIds.push(notifId.toString())
-      await LocalNotifications.schedule({
-        notifications: [{
-          id: notifId,
-          title: `🔔 ${tarea.titulo}`,
-          body,
-          schedule: { at: primerNotif },
-          smallIcon: 'ic_launcher_foreground',
-          sound: 'default',
-          extra: { taskId: tarea.id },
-          actionTypeId: 'view-task',
-        }],
-      })
+      const notifId = baseId + notifCount
+      scheduledIds.push(notifId)
+      try {
+        await LocalNotifications.schedule({
+          notifications: [{
+            id: notifId,
+            title: `🔔 ${tarea.titulo}`,
+            body,
+            schedule: { at: primerNotif, allowWhileIdle: true },
+            smallIcon: 'ic_launcher_foreground',
+            channelId: CHANNEL_ID,
+            extra: { taskId: tarea.id },
+            actionTypeId: 'view-task',
+          }],
+        })
+      } catch (e) {
+        console.warn(`Error agendando notificación para "${tarea.titulo}":`, e)
+      }
       notifCount++
     }
 
@@ -69,21 +87,25 @@ export async function scheduleTaskNotifications(tareas: Tarea[]) {
         ? `"${tarea.titulo}" — restan ${remainingHoras}h ${remainingMin}min`
         : `"${tarea.titulo}" — restan ${remainingMin}min ⏰`
 
-      const notifId = id + notifCount
-      scheduledIds.push(notifId.toString())
+      const notifId = baseId + notifCount
+      scheduledIds.push(notifId)
 
-      await LocalNotifications.schedule({
-        notifications: [{
-          id: notifId,
-          title: `🔔 ${tarea.titulo}`,
-          body,
-          schedule: { at: fechaNotif },
-          smallIcon: 'ic_launcher_foreground',
-          sound: 'default',
-          extra: { taskId: tarea.id },
-          actionTypeId: 'view-task',
-        }],
-      })
+      try {
+        await LocalNotifications.schedule({
+          notifications: [{
+            id: notifId,
+            title: `🔔 ${tarea.titulo}`,
+            body,
+            schedule: { at: fechaNotif, allowWhileIdle: true },
+            smallIcon: 'ic_launcher_foreground',
+            channelId: CHANNEL_ID,
+            extra: { taskId: tarea.id },
+            actionTypeId: 'view-task',
+          }],
+        })
+      } catch (e) {
+        console.warn(`Error agendando notificación para "${tarea.titulo}":`, e)
+      }
       notifCount++
     }
   }
@@ -91,6 +113,10 @@ export async function scheduleTaskNotifications(tareas: Tarea[]) {
 
 export async function cancelAllNotifications() {
   const { LocalNotifications } = await import('@capacitor/local-notifications')
-  await LocalNotifications.cancel({ notifications: scheduledIds.map(id => ({ id: parseInt(id) })) })
+  try {
+    await LocalNotifications.cancel({ notifications: scheduledIds.map(id => ({ id })) })
+  } catch (e) {
+    console.warn('Error cancelando notificaciones:', e)
+  }
   scheduledIds = []
 }

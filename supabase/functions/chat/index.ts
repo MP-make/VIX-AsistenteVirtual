@@ -17,6 +17,7 @@ const supabaseHandler = withSupabase({ auth: 'user' }, async (req: Request, ctx:
   const user_id = ctx.userClaims?.id ?? '';
   const body = await req.json();
   const messages: { role: string; content: string }[] = body.messages;
+  const hijo_id: string | null = body.hijo_id ?? null;
 
   if (!messages || !Array.isArray(messages) || messages.length === 0) {
     return new Response(
@@ -135,6 +136,7 @@ Ejemplos de chat: "hola", "ok", "gracias", "buenos días", "quién eres?", cualq
         categoria: result.tarea.categoria,
         nivel_urgencia: result.tarea.nivel_urgencia,
         fecha_vencimiento,
+        hijo_id,
       })
       .select()
       .single();

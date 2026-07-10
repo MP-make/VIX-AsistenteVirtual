@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react'
 import { sendChatMessage } from '@/features/chat/services/chat-service'
 import { crearTareaLocal } from '@/features/chat/services/local-task-parser'
+import { sendMessageDirect, getGeminiApiKey } from '@/lib/gemini'
 import { scheduleTaskNotifications } from '@/features/notifications/notification-service'
 import { obtenerTareas } from '@/features/dashboard/services/tasks-repository'
 import type { ChatMessage, Tarea } from '@/types'
@@ -10,7 +11,7 @@ export function useChatStream() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const sendMessage = useCallback(async (text: string) => {
+  const sendMessage = useCallback(async (text: string, hijoId?: string | null, esPersonal?: boolean) => {
     setIsLoading(true)
     setError(null)
 
@@ -21,35 +22,53 @@ export function useChatStream() {
       timestamp: new Date().toISOString(),
     }
 
+    const history = [...messages, userMsg].map(m => ({
+      role: m.role,
+      content: m.content,
+    }))
+
     setMessages(prev => [...prev, userMsg])
 
-    try {
-      const history = [...messages, userMsg].map(m => ({
-        role: m.role,
-        content: m.content,
-      }))
-
+    const sendViaEdge = async () => {
       const response = await sendChatMessage(history)
       let task: Tarea | undefined
-
       if (response.tipo === 'tarea' && response.tarea) {
         task = response.tarea
-        const tareas = await obtenerTareas()
-        scheduleTaskNotifications(tareas).catch(() => {})
       }
+      return { content: response.respuesta, task }
+    }
+
+    const sendViaDirectGemini = async () => {
+      const apiKey = getGeminiApiKey()
+      if (!apiKey) throw new Error('No API key')
+      const response = await sendMessageDirect(history, apiKey, text, hijoId, esPersonal)
+      return { content: response.respuesta, task: response.tarea ?? undefined }
+    }
+
+    try {
+      let result: { content: string; task: Tarea | undefined }
+      try {
+        result = await sendViaEdge()
+      } catch {
+        result = await sendViaDirectGemini().catch(() => {
+          throw new Error('Fallback needed')
+        })
+      }
+
+      const tareas = await obtenerTareas()
+      scheduleTaskNotifications(tareas).catch(() => {})
 
       const assistantMsg: ChatMessage = {
         id: crypto.randomUUID(),
         role: 'assistant',
-        content: response.respuesta,
+        content: result.content,
         timestamp: new Date().toISOString(),
-        task: task ? { ...task } : undefined,
+        task: result.task ? { ...result.task } : undefined,
       }
-
       setMessages(prev => [...prev, assistantMsg])
     } catch {
       try {
-        const { tarea } = await crearTareaLocal(text)
+        const { tarea } = await crearTareaLocal(text, hijoId ?? null, esPersonal ?? false)
         const tareas = await obtenerTareas()
         scheduleTaskNotifications(tareas).catch(() => {})
         const assistantMsg: ChatMessage = {

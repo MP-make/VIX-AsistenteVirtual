@@ -32,6 +32,7 @@ export default {
       const supabaseClient = ctx.supabase;
       const body = await req.json();
       texto_original = body.texto_original;
+      const hijo_id: string | null = body.hijo_id ?? null;
 
       if (!texto_original?.trim()) {
         return new Response(
@@ -120,6 +121,7 @@ La fecha actual es: ${new Date().toISOString()}`;
           categoria: aiResult.categoria,
           nivel_urgencia: aiResult.nivel_urgencia,
           fecha_vencimiento,
+          hijo_id,
         })
         .select()
         .single();

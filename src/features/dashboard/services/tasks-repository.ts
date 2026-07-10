@@ -26,7 +26,7 @@ export async function obtenerTareas(): Promise<Tarea[]> {
   return data ?? [];
 }
 
-export async function crearTarea(tarea: Partial<Tarea>): Promise<Tarea> {
+export async function crearTarea(tarea: Partial<Tarea> & { hijo_id?: string | null }): Promise<Tarea> {
   const user_id = await obtenerUserId();
   const { data, error } = await supabase
     .from('tareas')
@@ -49,11 +49,21 @@ export async function actualizarTarea(id: string, cambios: Partial<Tarea>): Prom
 }
 
 export async function toggleCompletada(id: string, completada: boolean): Promise<void> {
+  const { data: tarea, error: fetchError } = await supabase
+    .from('tareas')
+    .select('user_id, nivel_urgencia, fecha_vencimiento')
+    .eq('id', id)
+    .single();
+  if (fetchError) throw fetchError;
+  if (!tarea) throw new Error('Tarea no encontrada');
+
+  // No permitir desmarcar tareas vencidas
+  if (!completada && tarea.fecha_vencimiento && new Date(tarea.fecha_vencimiento) < new Date()) {
+    throw new Error('No se puede desmarcar una tarea vencida');
+  }
+
   const { error } = await supabase.from('tareas').update({ completada }).eq('id', id);
   if (error) throw error;
-
-  const { data: tarea } = await supabase.from('tareas').select('user_id, nivel_urgencia').eq('id', id).single();
-  if (!tarea) return;
 
   const puntos = PUNTOS_POR_URGENCIA[tarea.nivel_urgencia] ?? 10;
 

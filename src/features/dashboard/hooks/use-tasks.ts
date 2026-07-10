@@ -12,7 +12,7 @@ export function useTasks() {
   const notifRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const agendarNotificaciones = useCallback((lista: Tarea[]) => {
-    scheduleTaskNotifications(lista).catch(() => {})
+    scheduleTaskNotifications(lista).catch(e => console.warn('Error al agendar notificaciones:', e))
   }, [])
 
   const refresh = useCallback(async () => {

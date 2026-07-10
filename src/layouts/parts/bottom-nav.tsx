@@ -1,10 +1,11 @@
 import { useNavigate, useLocation } from 'react-router-dom'
-import { MessageSquare, ListTodo, LayoutDashboard, User } from 'lucide-react'
+import { MessageSquare, ListTodo, LayoutDashboard, User, Users } from 'lucide-react'
 
 const tabs = [
   { path: '/chat', label: 'Chat', icon: MessageSquare },
   { path: '/tareas', label: 'Tareas', icon: ListTodo },
   { path: '/dashboard', label: 'Panel', icon: LayoutDashboard },
+  { path: '/hijos', label: 'Hijos', icon: Users },
   { path: '/perfil', label: 'Perfil', icon: User },
 ] as const
 
