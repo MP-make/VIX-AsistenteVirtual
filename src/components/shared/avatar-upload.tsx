@@ -27,10 +27,10 @@ export function AvatarUpload({ src, initials, initialsColor = 'from-vix-400 to-v
 
     if (Capacitor.isNativePlatform()) {
       try {
-        const { Camera } = await import('@capacitor/camera')
+        const { Camera, CameraResultType } = await import('@capacitor/camera')
         const image = await Camera.getPhoto({
           quality: 80,
-          resultType: 'Base64',
+          resultType: CameraResultType.Base64,
         })
 
         if (image?.base64String) {
